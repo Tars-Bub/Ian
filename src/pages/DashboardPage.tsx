@@ -18,6 +18,12 @@ const DashboardPage = () => {
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  
+  // Filtered data states
+  const [filteredRevenue, setFilteredRevenue] = useState(0);
+  const [filteredExpenses, setFilteredExpenses] = useState(0);
+  const [filteredOrders, setFilteredOrders] = useState(0);
+  
   const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier } = useAuth();
   const { theme, toggleTheme, setUserThemePreference } = useTheme();
   const { shifts, markShiftRead, markAllShiftsRead, unreadCount, todayShifts } = useShifts();
@@ -36,7 +42,7 @@ const DashboardPage = () => {
   const chartData = getLast7DaysRevenue();
   const netProfit = todayRevenue - todayExpenseTotal;
   
-  // Redirect if not admin - using useEffect
+  // Redirect if not admin
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
@@ -46,6 +52,52 @@ const DashboardPage = () => {
       }
     }
   }, [isLoading, isAuthenticated, user, navigate]);
+
+  // Filter data based on date range - FIXED VERSION
+  useEffect(() => {
+    const now = new Date();
+    let startDate = new Date();
+    
+    // Set start date based on selected range
+    if (dateRange === 'today') {
+      startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
+    } else if (dateRange === 'week') {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (dateRange === 'month') {
+      startDate = new Date(now);
+      startDate.setMonth(now.getMonth() - 1);
+      startDate.setHours(0, 0, 0, 0);
+    }
+    
+    console.log('Date range:', dateRange, 'Start date:', startDate);
+    console.log('Total sales in DB:', sales.length);
+    
+    // Filter sales
+    const filteredSales = sales.filter(sale => {
+      const saleDate = new Date(sale.date);
+      const isAfter = saleDate >= startDate;
+      return isAfter;
+    });
+    
+    // Filter expenses
+    const filteredExpensesData = expenses.filter(expense => {
+      const expenseDate = new Date(expense.date);
+      return expenseDate >= startDate;
+    });
+    
+    const revenueSum = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
+    const expensesSum = filteredExpensesData.reduce((sum, expense) => sum + expense.amount, 0);
+    
+    console.log('Filtered sales count:', filteredSales.length, 'Revenue:', revenueSum);
+    console.log('Filtered expenses count:', filteredExpensesData.length, 'Expenses:', expensesSum);
+    
+    setFilteredRevenue(revenueSum);
+    setFilteredOrders(filteredSales.length);
+    setFilteredExpenses(expensesSum);
+  }, [dateRange, sales, expenses]);
 
   // Safely get cashier performance
   let cashierPerformance: { name: string; sales: number; orders: number; items: number }[] = [];
@@ -75,6 +127,15 @@ const DashboardPage = () => {
     if (cashier) {
       toast.success(`Switched to ${cashier.fullName}`);
       navigate('/pos', { replace: true });
+    }
+  };
+
+  const getDateRangeLabel = () => {
+    switch(dateRange) {
+      case 'today': return "Today's";
+      case 'week': return "This Week's";
+      case 'month': return "This Month's";
+      default: return "Today's";
     }
   };
 
@@ -212,85 +273,98 @@ const DashboardPage = () => {
           
           {/* Date Range Selector */}
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-            {[
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'This Week' },
-              { value: 'month', label: 'This Month' }
-            ].map(range => (
-              <button
-                key={range.value}
-                onClick={() => setDateRange(range.value as any)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                  dateRange === range.value
-                    ? 'bg-white text-orange-600'
-                    : 'bg-white/20 text-white hover:bg-white/30'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
+            <button
+              onClick={() => setDateRange('today')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                dateRange === 'today'
+                  ? 'bg-white text-orange-600'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => setDateRange('week')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                dateRange === 'week'
+                  ? 'bg-white text-orange-600'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+            >
+              This Week
+            </button>
+            <button
+              onClick={() => setDateRange('month')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                dateRange === 'month'
+                  ? 'bg-white text-orange-600'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+            >
+              This Month
+            </button>
           </div>
           
           <div className="mt-4 bg-white/20 backdrop-blur-sm rounded-2xl p-4">
-            <p className="text-sm text-white/80">Today's Revenue</p>
-            <p className="text-3xl font-black text-white">₱{todayRevenue.toLocaleString()}</p>
+            <p className="text-sm text-white/80">{getDateRangeLabel()} Revenue</p>
+            <p className="text-3xl font-black text-white">₱{filteredRevenue.toLocaleString()}</p>
           </div>
         </div>
 
         <div className="px-4 -mt-2 pb-4">
-          {/* Summary Cards */}
+          {/* Summary Cards with Date Range Filter */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow">
               <DollarSign className="w-5 h-5 text-green-500 mb-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Revenue</p>
-              <p className="font-bold text-green-600 dark:text-green-400 text-xl">₱{todayRevenue.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{getDateRangeLabel()} Revenue</p>
+              <p className="font-bold text-green-600 dark:text-green-400 text-xl">₱{filteredRevenue.toLocaleString()}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow">
               <TrendingUp className="w-5 h-5 text-red-500 mb-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Expenses</p>
-              <p className="font-bold text-red-600 dark:text-red-400 text-xl">₱{todayExpenseTotal.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{getDateRangeLabel()} Expenses</p>
+              <p className="font-bold text-red-600 dark:text-red-400 text-xl">₱{filteredExpenses.toLocaleString()}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow">
               <DollarSign className="w-5 h-5 text-orange-500 mb-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Net Profit</p>
-              <p className={`font-bold text-xl ${netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                ₱{netProfit.toLocaleString()}
+              <p className="text-xs text-gray-500 dark:text-gray-400">{getDateRangeLabel()} Net Profit</p>
+              <p className={`font-bold text-xl ${(filteredRevenue - filteredExpenses) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                ₱{(filteredRevenue - filteredExpenses).toLocaleString()}
               </p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow">
               <ShoppingBag className="w-5 h-5 text-orange-500 mb-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Orders Today</p>
-              <p className="font-bold text-gray-800 dark:text-white text-xl">{todayOrders}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{getDateRangeLabel()} Orders</p>
+              <p className="font-bold text-gray-800 dark:text-white text-xl">{filteredOrders}</p>
             </div>
           </div>
 
-         {/* Tab Navigation - FIXED: Full text visible */}
-<div className="flex gap-2 mb-6 overflow-x-auto pb-2 categories-scroll">
-  {[
-    { id: 'sales', label: 'Sales Analytics', icon: TrendingUp },
-    { id: 'expenses', label: 'Expenses', icon: DollarSign },
-    { id: 'supplies', label: 'Supplies', icon: Package },
-    { id: 'cashiers', label: 'Cashiers', icon: Users },
-    { id: 'shifts', label: 'Shifts', icon: Clock },
-    { id: 'users', label: 'Users', icon: UserCheck }
-  ].map(tab => (
-    <button
-      key={tab.id}
-      onClick={() => setActiveTab(tab.id as any)}
-      className={`px-3 py-2 rounded-xl font-medium transition-all flex items-center gap-1.5 ${
-        activeTab === tab.id
-          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
-          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-      }`}
-      style={{ minWidth: 'fit-content' }}
-    >
-      <tab.icon className="w-3.5 h-3.5 flex-shrink-0" />
-      <span className="text-xs font-medium whitespace-nowrap">
-        {tab.label}
-      </span>
-    </button>
-  ))}
-</div>
+          {/* Tab Navigation */}
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-2 categories-scroll">
+            {[
+              { id: 'sales', label: 'Sales Analytics', icon: TrendingUp },
+              { id: 'expenses', label: 'Expenses', icon: DollarSign },
+              { id: 'supplies', label: 'Supplies', icon: Package },
+              { id: 'cashiers', label: 'Cashiers', icon: Users },
+              { id: 'shifts', label: 'Shifts', icon: Clock },
+              { id: 'users', label: 'Users', icon: UserCheck }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-3 py-2 rounded-xl font-medium transition-all flex items-center gap-1.5 ${
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+                style={{ minWidth: 'fit-content' }}
+              >
+                <tab.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="text-xs font-medium whitespace-nowrap">
+                  {tab.label}
+                </span>
+              </button>
+            ))}
+          </div>
 
           {/* Sales Tab */}
           {activeTab === 'sales' && (
@@ -392,51 +466,27 @@ const DashboardPage = () => {
           {activeTab === 'expenses' && (
             <div className="space-y-5">
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
-                <h2 className="font-bold text-gray-800 dark:text-white mb-4">Today's Expenses</h2>
-                {todayExpenses.length === 0 ? (
+                <h2 className="font-bold text-gray-800 dark:text-white mb-4">{getDateRangeLabel()} Expenses</h2>
+                {filteredExpenses === 0 ? (
                   <div className="text-center py-8">
                     <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-500 dark:text-gray-400">No expenses today</p>
+                    <p className="text-gray-500 dark:text-gray-400">No expenses for {dateRange}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {todayExpenses.map(expense => (
-                      <div key={expense.id} className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-2">
-                        <div>
-                          <p className="font-medium text-gray-800 dark:text-white">{expense.description}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{expense.category}</p>
-                        </div>
-                        <p className="font-bold text-red-600 dark:text-red-400">₱{expense.amount.toLocaleString()}</p>
-                      </div>
-                    ))}
                     <div className="pt-3 mt-2 border-t-2 border-red-500">
                       <div className="flex justify-between items-center font-bold">
                         <span className="text-gray-800 dark:text-white">Total</span>
-                        <span className="text-red-600 dark:text-red-400 text-lg">₱{todayExpenseTotal.toLocaleString()}</span>
+                        <span className="text-red-600 dark:text-red-400 text-lg">₱{filteredExpenses.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
-                <h2 className="font-bold text-gray-800 dark:text-white mb-4">Recent Expenses</h2>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {expenses.slice(0, 20).map(expense => (
-                    <div key={expense.id} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-800 dark:text-white">{expense.description}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{expense.category} • {new Date(expense.date).toLocaleDateString()}</p>
-                      </div>
-                      <p className="font-bold text-red-600 dark:text-red-400 text-sm">₱{expense.amount.toLocaleString()}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
-          {/* Supplies Tab - With Error Boundary */}
+          {/* Supplies Tab */}
           {activeTab === 'supplies' && (
             <div className="mb-4">
               <ErrorBoundary fallback={
@@ -495,21 +545,6 @@ const DashboardPage = () => {
                       </div>
                     ))
                   )}
-                </div>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
-                <h2 className="font-bold text-gray-800 dark:text-white mb-4">Recent Activity</h2>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {todaySales.slice(0, 10).map(sale => (
-                    <div key={sale.id} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                      <div>
-                        <p className="text-sm font-medium text-gray-800 dark:text-white">{sale.cashierName || 'Unknown'}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(sale.date).toLocaleTimeString()} • {sale.items.length} items</p>
-                      </div>
-                      <p className="font-bold text-orange-600 dark:text-orange-400">₱{sale.total.toLocaleString()}</p>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
