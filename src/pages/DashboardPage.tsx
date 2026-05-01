@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSales, useExpenses, useShifts } from '@/hooks/useStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
-import { TrendingUp, ShoppingBag, DollarSign, Star, FileText, Package, Users, AlertTriangle, ArrowLeft, Calendar, Download, Award, UserCheck, Moon, Sun, LogOut, Plus, Trash2, RefreshCw, Bell, Clock, X, CheckCheck, Undo2 } from 'lucide-react';
+import { TrendingUp, ShoppingBag, DollarSign, Star, Package, Users, AlertTriangle, ArrowLeft, Download, Award, UserCheck, Moon, Sun, LogOut, Plus, Trash2, RefreshCw, Bell, Clock, X, CheckCheck, Undo2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import { generateDailyReport } from '@/lib/generateReport';
@@ -12,12 +12,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import AccountSwitcher from '@/components/AccountSwitcher';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState<'sales' | 'expenses' | 'supplies' | 'cashiers' | 'users' | 'shifts'>('sales');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  
+  // Void dialog state
+  const [showVoidDialog, setShowVoidDialog] = useState(false);
+  const [voidingOrder, setVoidingOrder] = useState<{ id: string; total: number; number?: string } | null>(null);
   
   // Filtered data states
   const [filteredRevenue, setFilteredRevenue] = useState(0);
@@ -26,7 +31,7 @@ const DashboardPage = () => {
   
   const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier } = useAuth();
   const { theme, toggleTheme, setUserThemePreference } = useTheme();
-  const { shifts, markShiftRead, markAllShiftsRead, unreadCount, todayShifts } = useShifts();
+  const { shifts, markShiftRead, markAllShiftsRead, unreadCount } = useShifts();
   const navigate = useNavigate();
   
   const { 
@@ -75,9 +80,7 @@ const DashboardPage = () => {
         break;
     }
     
-    // Filter sales
     const filteredSales = sales.filter(sale => new Date(sale.date) >= startDate);
-    // Filter expenses
     const filteredExpensesData = expenses.filter(expense => new Date(expense.date) >= startDate);
     
     setFilteredRevenue(filteredSales.reduce((sum, sale) => sum + sale.total, 0));
@@ -125,16 +128,22 @@ const DashboardPage = () => {
     }
   };
 
-  // Handle void order
+  // Handle void order - Shows custom dialog instead of native confirm
   const handleVoidOrder = (orderId: string, orderTotal: number, orderNumber?: string) => {
-    if (confirm(`⚠️ VOID ORDER\n\nAre you sure you want to void this order?\nOrder: ${orderNumber || 'N/A'}\nAmount: ₱${orderTotal.toLocaleString()}\n\nThis action cannot be undone!`)) {
-      const success = voidOrder(orderId);
+    setVoidingOrder({ id: orderId, total: orderTotal, number: orderNumber });
+    setShowVoidDialog(true);
+  };
+
+  const confirmVoidOrder = () => {
+    if (voidingOrder) {
+      const success = voidOrder(voidingOrder.id);
       if (success) {
-        toast.success(`Order voided! ₱${orderTotal.toLocaleString()} refunded.`);
+        toast.success(`Order voided! ₱${voidingOrder.total.toLocaleString()} refunded.`);
         setTimeout(() => window.location.reload(), 500);
       } else {
         toast.error('Failed to void order');
       }
+      setVoidingOrder(null);
     }
   };
 
@@ -157,7 +166,6 @@ const DashboardPage = () => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
     return sales
       .filter(sale => {
         const saleDate = new Date(sale.date);
@@ -172,7 +180,6 @@ const DashboardPage = () => {
   const getWeeklyData = () => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const weeklyData = days.map(day => ({ day, revenue: 0, orders: 0 }));
-    
     sales.forEach(sale => {
       const saleDate = new Date(sale.date);
       const dayName = days[saleDate.getDay()];
@@ -182,7 +189,6 @@ const DashboardPage = () => {
         dayData.orders += 1;
       }
     });
-    
     return weeklyData;
   };
 
@@ -220,10 +226,7 @@ const DashboardPage = () => {
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-4 pt-6 pb-6 sticky top-0 z-10">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate('/')}
-                className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
-              >
+              <button onClick={() => navigate('/')} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center">
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
               <div>
@@ -232,10 +235,7 @@ const DashboardPage = () => {
               </div>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowNotifications(true)}
-                className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center relative"
-              >
+              <button onClick={() => setShowNotifications(true)} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center relative">
                 <Bell className="w-5 h-5 text-white" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs text-white font-bold flex items-center justify-center">
@@ -243,26 +243,13 @@ const DashboardPage = () => {
                   </span>
                 )}
               </button>
-              <button
-                onClick={handleThemeToggle}
-                className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
-              >
-                {theme === 'light' ? (
-                  <Moon className="w-5 h-5 text-white" />
-                ) : (
-                  <Sun className="w-5 h-5 text-white" />
-                )}
+              <button onClick={handleThemeToggle} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center">
+                {theme === 'light' ? <Moon className="w-5 h-5 text-white" /> : <Sun className="w-5 h-5 text-white" />}
               </button>
-              <button
-                onClick={() => setShowAccountSwitcher(true)}
-                className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
-              >
+              <button onClick={() => setShowAccountSwitcher(true)} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center">
                 <Users className="w-5 h-5 text-white" />
               </button>
-              <button
-                onClick={handleLogout}
-                className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
-              >
+              <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center">
                 <LogOut className="w-5 h-5 text-white" />
               </button>
             </div>
@@ -270,23 +257,9 @@ const DashboardPage = () => {
           
           {/* Date Range Selector */}
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-            {[
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'This Week' },
-              { value: 'month', label: 'This Month' }
-            ].map(range => (
-              <button
-                key={range.value}
-                onClick={() => setDateRange(range.value as any)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                  dateRange === range.value
-                    ? 'bg-white text-orange-600'
-                    : 'bg-white/20 text-white hover:bg-white/30'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
+            <button onClick={() => setDateRange('today')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${dateRange === 'today' ? 'bg-white text-orange-600' : 'bg-white/20 text-white hover:bg-white/30'}`}>Today</button>
+            <button onClick={() => setDateRange('week')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${dateRange === 'week' ? 'bg-white text-orange-600' : 'bg-white/20 text-white hover:bg-white/30'}`}>This Week</button>
+            <button onClick={() => setDateRange('month')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${dateRange === 'month' ? 'bg-white text-orange-600' : 'bg-white/20 text-white hover:bg-white/30'}`}>This Month</button>
           </div>
           
           <div className="mt-4 bg-white/20 backdrop-blur-sm rounded-2xl p-4">
@@ -296,7 +269,7 @@ const DashboardPage = () => {
         </div>
 
         <div className="px-4 -mt-2 pb-4">
-          {/* Summary Cards - 4 cards only */}
+          {/* Summary Cards */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow">
               <DollarSign className="w-5 h-5 text-green-500 mb-2" />
@@ -407,10 +380,7 @@ const DashboardPage = () => {
                 </div>
               </div>
 
-              <button
-                onClick={handleGenerateReport}
-                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all"
-              >
+              <button onClick={handleGenerateReport} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all">
                 <Download className="w-5 h-5" />
                 Generate Daily Report
               </button>
@@ -431,11 +401,7 @@ const DashboardPage = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-orange-600 dark:text-orange-400">₱{sale.total.toLocaleString()}</p>
-                          <button
-                            onClick={() => handleVoidOrder(sale.id, sale.total, sale.orderNumber)}
-                            className="p-1.5 rounded-lg hover:bg-red-100 text-red-500 transition-colors"
-                            title="Void Order"
-                          >
+                          <button onClick={() => handleVoidOrder(sale.id, sale.total, sale.orderNumber)} className="p-1.5 rounded-lg hover:bg-red-100 text-red-500 transition-colors" title="Void Order">
                             <Undo2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -492,9 +458,7 @@ const DashboardPage = () => {
               <div className="bg-red-50 p-8 text-center rounded-2xl">
                 <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-red-700 mb-2">Something went wrong</h3>
-                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-500 text-white rounded-lg">
-                  Reload Page
-                </button>
+                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-500 text-white rounded-lg">Reload Page</button>
               </div>
             }>
               <SuppliesManager />
@@ -663,8 +627,11 @@ const DashboardPage = () => {
               </div>
               <div className="p-4 space-y-3">
                 {shifts.map(shift => (
-                  <div key={shift.id} className={`rounded-2xl p-4 cursor-pointer ${!shift.isRead ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50 border border-gray-200'}`}
-                    onClick={() => { markShiftRead(shift.id); setShowNotifications(false); setActiveTab('shifts'); }}>
+                  <div
+                    key={shift.id}
+                    className={`rounded-2xl p-4 cursor-pointer ${!shift.isRead ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50 border border-gray-200'}`}
+                    onClick={() => { markShiftRead(shift.id); setShowNotifications(false); setActiveTab('shifts'); }}
+                  >
                     <div className="flex items-start gap-3">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${!shift.isRead ? 'bg-orange-100' : 'bg-gray-200'}`}>
                         <Clock className={`w-5 h-5 ${!shift.isRead ? 'text-orange-500' : 'text-gray-500'}`} />
@@ -681,6 +648,18 @@ const DashboardPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Void Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showVoidDialog}
+        onClose={() => { setShowVoidDialog(false); setVoidingOrder(null); }}
+        onConfirm={confirmVoidOrder}
+        title="Void Order"
+        message={`Are you sure you want to void this order?\n\nOrder: ${voidingOrder?.number || 'N/A'}\nAmount: ₱${voidingOrder?.total?.toLocaleString() || 0}\n\nThis action cannot be undone!`}
+        confirmText="Yes, Void Order"
+        cancelText="Cancel"
+        type="danger"
+      />
     </>
   );
 };
