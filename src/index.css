@@ -467,8 +467,6 @@ button,
   color: white;
 }
 
-/* Add to the end of your index.css file */
-
 /* Better spacing for POS grid */
 @media (min-width: 640px) {
   .grid-cols-2 {
@@ -517,9 +515,6 @@ button,
   }
 }
 
-
-/* Add these styles at the end of your index.css */
-
 /* Better spacing for grid items */
 .grid-cols-2 {
   gap: 1rem;
@@ -551,4 +546,17 @@ button, [role="button"] {
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 300ms;
+}
+
+/* ============================================ */
+/* HIDE BOTTOM NAVIGATION WHEN CART DRAWER IS OPEN */
+/* ============================================ */
+
+body:has(.cart-drawer-open) .fixed.bottom-0,
+body:has(.cart-drawer-open) nav.fixed.bottom-0,
+body:has(.cart-drawer-open) [class*="BottomNav"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }

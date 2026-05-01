@@ -17,6 +17,15 @@ interface ReceiptState {
 const dashes = '- - - - - - - - - - - - - - -';
 const solidLine = '─────────────────────────────';
 
+// UPDATED STORE INFORMATION
+const STORE_INFO = {
+  name: "Maifah Bong's Tea Cafe",
+  tagline: "Cook As You Order",
+  address: "806 San Marcelino Street, Ermita, Philippines, 1000",
+  phone: "0906 539 8919",
+  tin: "123-456-789-000"
+};
+
 const ReceiptPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -48,7 +57,7 @@ const ReceiptPage = () => {
 
   const { sale, orderNumber, cashierName, cashierCode, cashTendered, change } = state;
   const date = new Date(sale.date);
-  const dateStr = date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  const dateStr = date.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = date.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const orderNo = `#${String(orderNumber).padStart(4, '0')}`;
   const isCash = sale.paymentMethod === 'cash';
@@ -63,7 +72,6 @@ const ReceiptPage = () => {
   };
 
   const handleHome = () => {
-    // Cashiers go to cashier dashboard, admins go to admin dashboard
     if (user?.role === 'cashier') {
       navigate('/cashier-dashboard');
     } else {
@@ -107,13 +115,14 @@ const ReceiptPage = () => {
         id="receipt-content"
         className="w-full max-w-[320px] bg-white rounded-lg shadow-xl p-6 font-mono text-[13px] leading-relaxed text-neutral-800 print:shadow-none print:rounded-none print:max-w-none print:w-full print:p-4"
       >
-        {/* Header */}
+        {/* Header - UPDATED with correct address and phone */}
         <div className="text-center space-y-1">
           <div className="text-3xl">☕</div>
-          <p className="font-bold text-base">Maifah Bong's Tea Cafe</p>
-          <p className="text-[11px] text-neutral-500">Cook As You Order</p>
-          <p className="text-[10px] text-neutral-400">Brgy. Sample, City, Philippines</p>
-          <p className="text-[11px] text-neutral-500">VAT REG TIN: 123-456-789-000</p>
+          <p className="font-bold text-base">{STORE_INFO.name}</p>
+          <p className="text-[11px] text-neutral-500">{STORE_INFO.tagline}</p>
+          <p className="text-[11px] text-neutral-500">{STORE_INFO.address}</p>
+          <p className="text-[11px] text-neutral-500">Tel: {STORE_INFO.phone}</p>
+          <p className="text-[10px] text-neutral-400">VAT REG TIN: {STORE_INFO.tin}</p>
           <p className="text-[11px] text-neutral-500">{dateStr} &nbsp; {timeStr}</p>
         </div>
 
@@ -221,10 +230,11 @@ const ReceiptPage = () => {
 
         <p className="text-center text-neutral-300 my-3 tracking-widest text-[11px]">{dashes}</p>
 
-        {/* Footer */}
+        {/* Footer - UPDATED with phone number */}
         <div className="text-center space-y-1 text-[11px] text-neutral-500">
           <p className="font-semibold text-neutral-700">Thank you for dining with us!</p>
           <p>Please come again!</p>
+          <p className="text-[10px] text-neutral-500">For inquiries: {STORE_INFO.phone}</p>
           <p className="text-[9px] text-neutral-400 mt-2">This serves as your official receipt</p>
           <p className="text-[10px] text-neutral-400">Powered by Maifah POS System</p>
         </div>
@@ -263,7 +273,6 @@ const ReceiptPage = () => {
           </motion.button>
         </div>
         
-        {/* Logout button for quick access */}
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleLogout}

@@ -3,6 +3,7 @@ export interface MenuItem {
   name: string;
   price: number;
   category: string;
+  image?: string; // Optional image URL
 }
 
 export interface CartItem extends MenuItem {
@@ -11,6 +12,7 @@ export interface CartItem extends MenuItem {
 
 export interface SaleRecord {
   id: string;
+  orderNumber: string; // ADD THIS - unique order number
   items: CartItem[];
   total: number;
   paymentMethod: 'cash' | 'cashless';
@@ -109,13 +111,3 @@ export const expenseCategories = [
   'Rent',
   'Other',
 ];
-
-export interface SaleRecord {
-  id: string;
-  items: CartItem[];
-  total: number;
-  paymentMethod: 'cash' | 'cashless';
-  date: string;
-  cashierName?: string; // Add cashier name to track who made the sale
-  cashierId?: string; // Add cashier ID for tracking
-}

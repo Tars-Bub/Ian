@@ -34,8 +34,11 @@ const PaymentPage = () => {
     if (selectedMethod === 'cash' && !canConfirmCash) return;
 
     const orderNumber = getNextOrderNumber();
+    const formattedOrderNumber = `ORD-${Date.now()}`; // Create a formatted order number
+    
     const sale = {
       id: Date.now().toString(),
+      orderNumber: formattedOrderNumber, // ADD THIS LINE
       items: cart,
       total: cartTotal,
       paymentMethod: selectedMethod,
@@ -43,13 +46,16 @@ const PaymentPage = () => {
       cashierName: user?.fullName || 'Cashier',
       cashierId: user?.id,
     };
+    
     addSale(sale);
     clearCart();
+    
     navigate('/receipt', {
       state: {
         sale,
-        orderNumber,
+        orderNumber: orderNumber, // Keep the numeric counter for display
         cashierName: user?.fullName || 'Cashier',
+        cashierCode: user?.cashierCode,
         cashTendered: selectedMethod === 'cash' ? cashAmount : undefined,
         change: selectedMethod === 'cash' ? change : undefined,
       },

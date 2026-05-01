@@ -55,6 +55,46 @@ export function useSales() {
     salesStore.set(prev => [sale, ...prev]);
   }, []);
 
+  // VOID ORDER FUNCTION - Removes order and updates analytics
+  const voidOrder = useCallback((orderId: string) => {
+    const orderToVoid = sales.find(s => s.id === orderId);
+    if (!orderToVoid) return false;
+    
+    // Remove the order from sales
+    salesStore.set(prev => prev.filter(sale => sale.id !== orderId));
+    
+    // Store void record for audit trail
+    const voidRecord = {
+      id: `void_${Date.now()}`,
+      orderId: orderId,
+      orderNumber: orderToVoid.orderNumber,
+      amount: orderToVoid.total,
+      items: orderToVoid.items,
+      cashierName: orderToVoid.cashierName,
+      paymentMethod: orderToVoid.paymentMethod,
+      reason: 'Customer refund / Voided order',
+      voidedAt: new Date().toISOString()
+    };
+    
+    const existingVoids = JSON.parse(localStorage.getItem('pos_voids') || '[]');
+    localStorage.setItem('pos_voids', JSON.stringify([voidRecord, ...existingVoids]));
+    
+    return true;
+  }, [sales]);
+
+  // Get all voided orders for reporting
+  const getVoidedOrders = useCallback(() => {
+    return JSON.parse(localStorage.getItem('pos_voids') || '[]');
+  }, []);
+
+  // Get total voided amount for today
+  const getTodayVoidedAmount = useCallback(() => {
+    const voids = JSON.parse(localStorage.getItem('pos_voids') || '[]');
+    const today = new Date().toDateString();
+    const todayVoids = voids.filter((v: any) => new Date(v.voidedAt).toDateString() === today);
+    return todayVoids.reduce((sum: number, v: any) => sum + v.amount, 0);
+  }, []);
+
   const today = new Date().toDateString();
   const todaySales = sales.filter(s => new Date(s.date).toDateString() === today);
   const todayRevenue = todaySales.reduce((sum, s) => sum + s.total, 0);
@@ -113,6 +153,9 @@ export function useSales() {
   return { 
     sales, 
     addSale, 
+    voidOrder,
+    getVoidedOrders,
+    getTodayVoidedAmount,
     todaySales, 
     todayRevenue, 
     todayOrders, 
@@ -197,4 +240,5 @@ export function useShifts() {
   const todayShifts = shifts.filter(s => new Date(s.shiftEnd).toDateString() === new Date().toDateString());
 
   return { shifts, addShift, markShiftRead, markAllShiftsRead, unreadCount, todayShifts };
+
 }

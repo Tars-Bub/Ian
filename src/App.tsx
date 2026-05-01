@@ -1,5 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -29,25 +28,21 @@ const queryClient = new QueryClient({
 });
 
 const AppContent = () => {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const { getUserThemePreference } = useTheme();
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Clear any stale session on app start - ONLY ONCE
   useEffect(() => {
     const initApp = () => {
-      // Check if this is a fresh page load
       const isFreshLoad = sessionStorage.getItem('app_initialized');
       if (!isFreshLoad) {
-        // Clear any stale user data to prevent auto-login
         localStorage.removeItem('currentUser');
         sessionStorage.clear();
         sessionStorage.setItem('app_initialized', 'true');
-        console.log('App initialized - cleared stale sessions');
+        console.log('App initialized');
       }
       setIsInitialized(true);
     };
-    
     initApp();
   }, []);
 
@@ -60,7 +55,7 @@ const AppContent = () => {
         document.documentElement.classList.remove('dark');
       }
     }
-  }, [user, isInitialized]);
+  }, [user, isInitialized, getUserThemePreference]);
 
   if (isLoading || !isInitialized) {
     return (
@@ -97,8 +92,7 @@ const AppContent = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner richColors closeButton position="top-right" />
+      <Toaster richColors closeButton position="top-right" />
       <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <AppContent />
       </BrowserRouter>

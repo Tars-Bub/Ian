@@ -29,6 +29,33 @@ const POSPage = () => {
     }
   }, [isLoading, user, navigate]);
 
+  // Force hide bottom nav when cart opens
+  useEffect(() => {
+    const hideBottomNav = () => {
+      const bottomNav = document.querySelector('.fixed.bottom-0, nav:last-child');
+      if (bottomNav) {
+        if (cartOpen) {
+          bottomNav.style.display = 'none';
+        } else {
+          bottomNav.style.display = 'flex';
+        }
+      }
+    };
+    
+    hideBottomNav();
+    
+    // Also try after a short delay to ensure DOM is updated
+    const timer = setTimeout(hideBottomNav, 100);
+    
+    return () => {
+      clearTimeout(timer);
+      const bottomNav = document.querySelector('.fixed.bottom-0, nav:last-child');
+      if (bottomNav) {
+        bottomNav.style.display = 'flex';
+      }
+    };
+  }, [cartOpen]);
+
   const filteredItems = useMemo(() => {
     let items = menuItems;
     if (selectedCategory !== 'All') {
@@ -194,14 +221,14 @@ const POSPage = () => {
 
         {/* Floating Cart Button */}
         <AnimatePresence>
-          {cartCount > 0 && (
+          {cartCount > 0 && !cartOpen && (
             <motion.button
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               onClick={() => setCartOpen(true)}
-              className="fixed bottom-24 left-4 right-4 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl py-4 px-6 flex items-center justify-between shadow-lg z-40"
+              className="fixed bottom-32 left-4 right-4 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl py-4 px-6 flex items-center justify-between shadow-lg z-40"
             >
               <div className="flex items-center gap-3">
                 <div className="relative">
@@ -217,6 +244,7 @@ const POSPage = () => {
           )}
         </AnimatePresence>
 
+        {/* Cart Drawer */}
         <CartDrawer
           open={cartOpen}
           onClose={() => setCartOpen(false)}
@@ -227,7 +255,8 @@ const POSPage = () => {
           onCheckout={handleCheckout}
         />
 
-        <BottomNav />
+        {/* Bottom Navigation - HIDE when cart is open */}
+        {!cartOpen && <BottomNav />}
       </div>
 
       <AccountSwitcher 
