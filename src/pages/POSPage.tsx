@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search, ShoppingBag, ArrowLeft, LogOut, Users, Moon, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { menuItems, categories, MenuItem as MenuItemType } from '@/data/menu';
 import { useCart } from '@/hooks/useStore';
 import CartDrawer from '@/components/CartDrawer';
 import BottomNav from '@/components/BottomNav';
@@ -11,50 +10,45 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import AccountSwitcher from '@/components/AccountSwitcher';
 import { toast } from 'sonner';
+import { getAllMenuItems, searchMenuItems } from '../../posLogic';  // ← Added
 
 const POSPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
+  const [menuItems, setMenuItems] = useState([]);     // ← Dynamic
+  const [loading, setLoading] = useState(true);
+
   const { cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount } = useCart();
   const navigate = useNavigate();
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const { theme, toggleTheme, setUserThemePreference } = useTheme();
+
+  // Load menu items from IndexedDB
+  const loadMenuItems = async () => {
+    setLoading(true);
+    try {
+      const items = await getAllMenuItems();
+      setMenuItems(items);
+    } catch (error) {
+      console.error("Failed to load menu items:", error);
+      toast.error("Failed to load menu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMenuItems();
+  }, []);
 
   // Redirect if not logged in
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!authLoading && !user) {
       navigate('/login', { replace: true });
     }
-  }, [isLoading, user, navigate]);
-
-  // Force hide bottom nav when cart opens
-  useEffect(() => {
-    const hideBottomNav = () => {
-      const bottomNav = document.querySelector('.fixed.bottom-0, nav:last-child');
-      if (bottomNav) {
-        if (cartOpen) {
-          bottomNav.style.display = 'none';
-        } else {
-          bottomNav.style.display = 'flex';
-        }
-      }
-    };
-    
-    hideBottomNav();
-    
-    // Also try after a short delay to ensure DOM is updated
-    const timer = setTimeout(hideBottomNav, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      const bottomNav = document.querySelector('.fixed.bottom-0, nav:last-child');
-      if (bottomNav) {
-        bottomNav.style.display = 'flex';
-      }
-    };
-  }, [cartOpen]);
+  }, [authLoading, user, navigate]);
 
   const filteredItems = useMemo(() => {
     let items = menuItems;
@@ -63,14 +57,17 @@ const POSPage = () => {
     }
     if (search) {
       const searchLower = search.toLowerCase();
-      items = items.filter(i => i.name.toLowerCase().includes(searchLower));
+      items = items.filter(i => 
+        i.name.toLowerCase().includes(searchLower) || 
+        (i.description && i.description.toLowerCase().includes(searchLower))
+      );
     }
     return items;
-  }, [selectedCategory, search]);
+  }, [menuItems, selectedCategory, search]);
 
   const getItemQty = (id: string) => cart.find(c => c.id === id)?.quantity || 0;
 
-  const handleAddToCart = (item: MenuItemType) => {
+  const handleAddToCart = (item: any) => {
     if (item.price <= 0) {
       toast.error('Invalid item price');
       return;
@@ -88,9 +85,7 @@ const POSPage = () => {
     navigate('/payment', { state: { cart, cartTotal } });
   };
 
-  const handleLogout = () => {
-    logout();
-  };
+  const handleLogout = () => logout();
 
   const handleThemeToggle = () => {
     toggleTheme();
@@ -107,32 +102,33 @@ const POSPage = () => {
     }
   };
 
-  if (isLoading) {
+  // Get unique categories from actual data
+  const availableCategories = useMemo(() => {
+    const cats = new Set(menuItems.map(item => item.category));
+    return ['All', ...Array.from(cats)];
+  }, [menuItems]);
+
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading POS System...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading Menu...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
     <>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
-        {/* Header - Sticky */}
+        {/* Header */}
         <div className="sticky top-0 z-20">
           <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-4 pt-6 pb-4">
             <div className="flex justify-between items-center mb-4">
-              <button
-                onClick={goBack}
-                className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
-              >
+              <button onClick={goBack} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center">
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
               <div className="flex-1 text-center">
@@ -140,30 +136,18 @@ const POSPage = () => {
                 <p className="text-xs text-white/80">Cashier: {user.fullName}</p>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={handleThemeToggle}
-                  className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
-                >
-                  {theme === 'light' ? (
-                    <Moon className="w-5 h-5 text-white" />
-                  ) : (
-                    <Sun className="w-5 h-5 text-white" />
-                  )}
+                <button onClick={handleThemeToggle} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30">
+                  {theme === 'light' ? <Moon className="w-5 h-5 text-white" /> : <Sun className="w-5 h-5 text-white" />}
                 </button>
-                <button
-                  onClick={() => setShowAccountSwitcher(true)}
-                  className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
-                >
+                <button onClick={() => setShowAccountSwitcher(true)} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30">
                   <Users className="w-5 h-5 text-white" />
                 </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
-                >
+                <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30">
                   <LogOut className="w-5 h-5 text-white" />
                 </button>
               </div>
             </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -176,10 +160,10 @@ const POSPage = () => {
             </div>
           </div>
 
-          {/* Categories - Scrollable */}
+          {/* Dynamic Categories */}
           <div className="bg-white dark:bg-gray-800 px-4 py-3 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
             <div className="flex gap-2" style={{ minWidth: 'min-content' }}>
-              {categories.map(cat => (
+              {availableCategories.map(cat => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
@@ -214,7 +198,6 @@ const POSPage = () => {
             <div className="text-center py-12">
               <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 dark:text-gray-400 font-medium">No items found</p>
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Try a different search term</p>
             </div>
           )}
         </div>
@@ -226,7 +209,6 @@ const POSPage = () => {
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               onClick={() => setCartOpen(true)}
               className="fixed bottom-32 left-4 right-4 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl py-4 px-6 flex items-center justify-between shadow-lg z-40"
             >
@@ -244,7 +226,6 @@ const POSPage = () => {
           )}
         </AnimatePresence>
 
-        {/* Cart Drawer */}
         <CartDrawer
           open={cartOpen}
           onClose={() => setCartOpen(false)}
@@ -255,7 +236,6 @@ const POSPage = () => {
           onCheckout={handleCheckout}
         />
 
-        {/* Bottom Navigation - HIDE when cart is open */}
         {!cartOpen && <BottomNav />}
       </div>
 

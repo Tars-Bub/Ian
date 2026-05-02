@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSales, useExpenses, useShifts } from '@/hooks/useStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
-import { TrendingUp, ShoppingBag, DollarSign, Star, Package, Users, AlertTriangle, ArrowLeft, Download, Award, UserCheck, Moon, Sun, LogOut, Plus, Trash2, RefreshCw, Bell, Clock, X, CheckCheck, Undo2 } from 'lucide-react';
+import { TrendingUp, ShoppingBag, DollarSign, Star, Package, Users, AlertTriangle, ArrowLeft, Download, Award, UserCheck, Moon, Sun, LogOut, Plus, Trash2, RefreshCw, Bell, Clock, X, CheckCheck, Undo2, Menu } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import { generateDailyReport } from '@/lib/generateReport';
 import { toast } from 'sonner';
 import SuppliesManager from '@/components/SuppliesManager';
+import MenuManager from '@/components/MenuManager';   // ← Added
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import AccountSwitcher from '@/components/AccountSwitcher';
@@ -15,7 +16,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import ConfirmDialog from '@/components/ConfirmDialog';
 
 const DashboardPage = () => {
-  const [activeTab, setActiveTab] = useState<'sales' | 'expenses' | 'supplies' | 'cashiers' | 'users' | 'shifts'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'expenses' | 'supplies' | 'cashiers' | 'users' | 'shifts' | 'menu'>('sales');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -23,11 +24,6 @@ const DashboardPage = () => {
   // Void dialog state
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [voidingOrder, setVoidingOrder] = useState<{ id: string; total: number; number?: string } | null>(null);
-  
-  // Filtered data states
-  const [filteredRevenue, setFilteredRevenue] = useState(0);
-  const [filteredExpenses, setFilteredExpenses] = useState(0);
-  const [filteredOrders, setFilteredOrders] = useState(0);
   
   const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier } = useAuth();
   const { theme, toggleTheme, setUserThemePreference } = useTheme();
@@ -49,6 +45,11 @@ const DashboardPage = () => {
   const chartData = getLast7DaysRevenue();
   const netProfit = todayRevenue - todayExpenseTotal;
   
+  // Filtered data states
+  const [filteredRevenue, setFilteredRevenue] = useState(0);
+  const [filteredExpenses, setFilteredExpenses] = useState(0);
+  const [filteredOrders, setFilteredOrders] = useState(0);
+
   // Redirect if not admin
   useEffect(() => {
     if (!isLoading) {
@@ -88,7 +89,6 @@ const DashboardPage = () => {
     setFilteredExpenses(filteredExpensesData.reduce((sum, expense) => sum + expense.amount, 0));
   }, [dateRange, sales, expenses]);
 
-  // Safely get cashier performance
   let cashierPerformance: { name: string; sales: number; orders: number; items: number }[] = [];
   try {
     cashierPerformance = getCashierPerformance ? getCashierPerformance() : [];
@@ -128,7 +128,6 @@ const DashboardPage = () => {
     }
   };
 
-  // Handle void order - Shows custom dialog instead of native confirm
   const handleVoidOrder = (orderId: string, orderTotal: number, orderNumber?: string) => {
     setVoidingOrder({ id: orderId, total: orderTotal, number: orderNumber });
     setShowVoidDialog(true);
@@ -147,7 +146,6 @@ const DashboardPage = () => {
     }
   };
 
-  // Calculate category sales
   const getCategorySales = () => {
     const categories: Record<string, number> = {};
     todaySales.forEach(sale => {
@@ -161,7 +159,6 @@ const DashboardPage = () => {
   const categoryData = getCategorySales();
   const COLORS = ['#FF6B35', '#FF8C42', '#FFA559', '#FFB347', '#FFC46B', '#FFD58C', '#FFE4A0', '#FFEDB5'];
 
-  // Calculate month-to-date revenue
   const getMonthToDateRevenue = () => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -176,7 +173,6 @@ const DashboardPage = () => {
 
   const monthToDateRevenue = getMonthToDateRevenue();
 
-  // Calculate weekly data
   const getWeeklyData = () => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const weeklyData = days.map(day => ({ day, revenue: 0, orders: 0 }));
@@ -199,7 +195,6 @@ const DashboardPage = () => {
     toast.success('Report downloaded successfully');
   };
 
-  // Get top performer
   const topPerformer = cashierPerformance.length > 0 ? cashierPerformance[0] : null;
   const totalCashierSales = cashierPerformance.reduce((sum, c) => sum + c.sales, 0);
   const cashierSalesPercentage = totalCashierSales > 0 ? (topPerformer?.sales / totalCashierSales) * 100 : 0;
@@ -302,6 +297,7 @@ const DashboardPage = () => {
                 { id: 'sales', label: 'Sales Analytics', icon: TrendingUp },
                 { id: 'expenses', label: 'Expenses', icon: DollarSign },
                 { id: 'supplies', label: 'Supplies', icon: Package },
+                { id: 'menu', label: 'Menu Items', icon: Menu },
                 { id: 'cashiers', label: 'Cashiers', icon: Users },
                 { id: 'shifts', label: 'Shifts', icon: Clock },
                 { id: 'users', label: 'Users', icon: UserCheck }
@@ -322,6 +318,19 @@ const DashboardPage = () => {
               ))}
             </div>
           </div>
+
+          {/* ====================== MENU TAB ====================== */}
+          {activeTab === 'menu' && (
+            <ErrorBoundary fallback={
+              <div className="bg-red-50 p-8 text-center rounded-2xl">
+                <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-red-700 mb-2">Failed to load Menu Manager</h3>
+                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-500 text-white rounded-lg">Reload Page</button>
+              </div>
+            }>
+              <MenuManager />
+            </ErrorBoundary>
+          )}
 
           {/* Sales Tab */}
           {activeTab === 'sales' && (
@@ -408,12 +417,6 @@ const DashboardPage = () => {
                       </div>
                     </div>
                   ))}
-                  {todaySales.length === 0 && (
-                    <div className="text-center py-8">
-                      <ShoppingBag className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-500">No sales today</p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -454,13 +457,7 @@ const DashboardPage = () => {
 
           {/* Supplies Tab */}
           {activeTab === 'supplies' && (
-            <ErrorBoundary fallback={
-              <div className="bg-red-50 p-8 text-center rounded-2xl">
-                <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-red-700 mb-2">Something went wrong</h3>
-                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-500 text-white rounded-lg">Reload Page</button>
-              </div>
-            }>
+            <ErrorBoundary>
               <SuppliesManager />
             </ErrorBoundary>
           )}
@@ -476,9 +473,6 @@ const DashboardPage = () => {
                   </div>
                   <p className="text-2xl font-bold">{topPerformer.name}</p>
                   <p className="text-sm opacity-90">₱{topPerformer.sales.toLocaleString()} sales • {topPerformer.orders} orders</p>
-                  <div className="mt-3 w-full bg-white/20 rounded-full h-2">
-                    <div className="bg-white rounded-full h-2" style={{ width: `${Math.min(cashierSalesPercentage, 100)}%` }} />
-                  </div>
                 </div>
               )}
               <div className="bg-white dark:bg-gray-800 rounded-2xl border p-5">

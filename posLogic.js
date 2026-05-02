@@ -64,3 +64,55 @@ export function getByCategory(items, category) {
   if (category === "All") return items;
   return items.filter(i => i.category === category);
 }
+// ================ MENU ITEM CRUD (Admin Only) ================
+
+export async function getAllMenuItems() {
+  const { getAllItems } = await import('./src/lib/indexedDB.js');
+  return await getAllItems('menu_items');
+}
+
+export async function addMenuItem(itemData) {
+  const { addItem } = await import('./src/lib/indexedDB.js');
+  const newItem = {
+    id: 'menu-' + Date.now().toString(36),
+    ...itemData,
+    createdAt: new Date().toISOString(),
+    isAvailable: true
+  };
+  await addItem('menu_items', newItem);
+  return newItem;
+}
+
+export async function updateMenuItem(id, updates) {
+  const { updateItem } = await import('./src/lib/indexedDB.js');
+  return await updateItem('menu_items', id, updates);
+}
+
+export async function deleteMenuItem(id) {
+  const { deleteItem } = await import('./src/lib/indexedDB.js');
+  await deleteItem('menu_items', id);
+  return true;
+}
+
+export async function searchMenuItems(query = '', category = 'All') {
+  let items = await getAllMenuItems();
+  
+  if (query.trim()) {
+    const q = query.toLowerCase();
+    items = items.filter(item => 
+      item.name?.toLowerCase().includes(q) || 
+      item.description?.toLowerCase().includes(q)
+    );
+  }
+  
+  if (category !== 'All' && category) {
+    items = items.filter(item => item.category === category);
+  }
+  
+  return items.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Check if user is admin
+export function isAdmin(user) {
+  return user?.role === 'admin';
+}
