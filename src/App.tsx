@@ -17,6 +17,7 @@ import ExpensesPage from "./pages/ExpensesPage";
 import NotFound from "./pages/NotFound";
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import CashierInventoryPage from "./pages/CashierInventoryPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,7 @@ const AppContent = () => {
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/receipt" element={<ReceiptPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/cashier-inventory" element={<CashierInventoryPage />} />
           <Route path="/cashier-dashboard" element={<CashierDashboard />} />
           <Route path="/expenses" element={<ExpensesPage />} />
           <Route path="*" element={<NotFound />} />

@@ -10,15 +10,14 @@ const SelectOperationPage = () => {
   const { user, users, setUsers, logout } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // If user already has assigned operation, redirect immediately
+  // Only auto-redirect cashiers (not admins — admins should be able to switch freely)
   useEffect(() => {
-    if (user?.assignedOperation && !isProcessing) {
-      console.log('User has assigned operation:', user.assignedOperation);
+    if (user?.assignedOperation && !isProcessing && user.role === 'cashier') {
       if (user.assignedOperation === 'cashier') {
         navigate('/pos', { replace: true });
       } else if (user.assignedOperation === 'inventory') {
-        navigate('/dashboard', { replace: true });
-      }
+  navigate('/cashier-inventory', { replace: true });
+}
     }
   }, [user, navigate, isProcessing]);
 
@@ -29,12 +28,24 @@ const SelectOperationPage = () => {
       return;
     }
     
-    // Check if cashier can access inventory
-    if (user.role === 'cashier' && operation === 'inventory') {
-      toast.error('Cashiers cannot access inventory management');
+    // Cashiers can only access their assigned operation
+    if (user.role === 'cashier' && operation === 'inventory' && user.assignedOperation !== 'inventory') {
+      toast.error('You are not assigned to inventory. Contact your admin.');
       return;
     }
-    
+
+    // FIX Bug 2+3: Allow admins to switch freely — don't lock them in permanently
+    if (user.role === 'admin' && user.assignedOperation === operation) {
+  // Already in this mode, just navigate
+  navigate(operation === 'cashier' ? '/pos' : '/dashboard');
+  return;
+}
+
+// For cashiers already in this mode, just navigate
+if (user.role === 'cashier' && user.assignedOperation === operation) {
+  navigate(operation === 'cashier' ? '/pos' : '/cashier-inventory');
+  return;
+}
     setIsProcessing(true);
     
     // Save the selected operation permanently
@@ -53,10 +64,11 @@ const SelectOperationPage = () => {
     
     // Navigate to the selected operation
     if (operation === 'cashier') {
-      navigate('/pos');
-    } else {
-      navigate('/dashboard');
-    }
+  navigate('/pos');
+} else {
+  // Admins go to the admin dashboard; cashiers go to their own dashboard
+ navigate(user.role === 'admin' ? '/dashboard' : '/cashier-inventory');
+}
   };
 
   const handleLogout = () => {
@@ -93,16 +105,16 @@ const SelectOperationPage = () => {
           Welcome, {user.fullName || user.email.split('@')[0]}!
         </h1>
         <p className="text-gray-500 mt-2">Please select your operation</p>
-        {!user.assignedOperation && (
+        {!user.assignedOperation && user.role === 'cashier' && (
           <div className="mt-3 flex items-center justify-center gap-2 text-orange-500 bg-orange-50 rounded-lg p-2">
             <AlertTriangle className="w-4 h-4" />
             <p className="text-xs font-medium">This choice will be permanent for your account</p>
           </div>
         )}
-        {user.assignedOperation && (
+        {user.role === 'admin' && (
           <div className="mt-3 flex items-center justify-center gap-2 text-blue-500 bg-blue-50 rounded-lg p-2">
             <AlertTriangle className="w-4 h-4" />
-            <p className="text-xs font-medium">You are currently in {user.assignedOperation} mode</p>
+            <p className="text-xs font-medium">As admin, you can switch between modes anytime</p>
           </div>
         )}
       </div>
@@ -111,10 +123,8 @@ const SelectOperationPage = () => {
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={() => handleSelectOperation('cashier')}
-          disabled={user.assignedOperation === 'inventory' || isProcessing}
-          className={`w-full p-6 rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-left flex items-center gap-4 shadow-lg transition-all ${
-            user.assignedOperation === 'inventory' ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl'
-          }`}
+          disabled={isProcessing}
+          className={`w-full p-6 rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-left flex items-center gap-4 shadow-lg transition-all hover:shadow-xl`}
         >
           <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
             <ShoppingCart className="w-8 h-8" />
@@ -133,14 +143,12 @@ const SelectOperationPage = () => {
           )}
         </motion.button>
 
-        {user?.role === 'admin' && (
+        {(user?.role === 'admin' || user?.assignedOperation === 'inventory') && (
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => handleSelectOperation('inventory')}
-            disabled={user.assignedOperation === 'cashier' || isProcessing}
-            className={`w-full p-6 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white text-left flex items-center gap-4 shadow-lg transition-all ${
-              user.assignedOperation === 'cashier' ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl'
-            }`}
+            disabled={isProcessing}
+            className={`w-full p-6 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white text-left flex items-center gap-4 shadow-lg transition-all hover:shadow-xl`}
           >
             <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
               <BarChart3 className="w-8 h-8" />

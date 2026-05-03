@@ -3,7 +3,8 @@ export interface MenuItem {
   name: string;
   price: number;
   category: string;
-  image?: string; // Optional image URL
+  image?: string;
+  description?: string; // ← add this
 }
 
 export interface CartItem extends MenuItem {

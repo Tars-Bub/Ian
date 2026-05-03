@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Coffee, Receipt, Clock, ArrowLeft, LogOut, Users, TrendingUp, DollarSign, Star, Moon, Sun, Package, Award, LogIn } from 'lucide-react';
+import { ShoppingBag, Coffee, Receipt, Clock, ArrowLeft, LogOut, Users, TrendingUp, DollarSign, Star, Moon, Sun, Package, Award, LogIn, ArrowLeftRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import BottomNav from '@/components/BottomNav';
-import { useAuth } from '@/hooks/useAuth';
+import BottomNav from '@/components/BottomNav';import { useAuth } from '@/hooks/useAuth';
 import { useSales, useShifts } from '@/hooks/useStore';
 import { useTheme } from '@/hooks/useTheme';
 import AccountSwitcher from '@/components/AccountSwitcher';
@@ -160,10 +159,17 @@ const CashierDashboard = () => {
               </div>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={handleThemeToggle}
-                className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors"
-              >
+  <button
+    onClick={() => navigate('/select')}
+    title="Switch Mode"
+    className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors"
+  >
+    <ArrowLeftRight className="w-5 h-5 text-primary-foreground" />
+  </button>
+  <button
+    onClick={handleThemeToggle}
+    className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors"
+  >
                 {theme === 'light' ? (
                   <Moon className="w-5 h-5 text-primary-foreground" />
                 ) : (

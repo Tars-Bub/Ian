@@ -210,7 +210,7 @@ export function useAuth(): AuthState {
 
   const assignOperation = (userId: string, operation: 'cashier' | 'inventory'): boolean => {
     const userToUpdate = users.find(u => u.id === userId);
-    if (userToUpdate?.assignedOperation) return false;
+    // FIX Bug 3: Removed the early return that permanently blocked reassignment
     
     const updatedUsers = users.map(u => 
       u.id === userId ? { ...u, assignedOperation: operation } : u
@@ -272,7 +272,7 @@ export function useAuth(): AuthState {
   const canAccess = (requiredOperation: string): boolean => {
     if (!user) return false;
     if (user.role === 'admin') return true;
-    return requiredOperation === 'cashier';
+    return user.assignedOperation === requiredOperation;
   };
 
   return {

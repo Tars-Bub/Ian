@@ -26,7 +26,7 @@ const PaymentPage = () => {
   const [cashTendered, setCashTendered] = useState('');
 
   const cashAmount = parseFloat(cashTendered) || 0;
-  const change = cashAmount - cartTotal;
+  const change = parseFloat((cashAmount - cartTotal).toFixed(2));
   const canConfirmCash = cashAmount >= cartTotal;
 
   const handleConfirm = () => {
@@ -34,7 +34,9 @@ const PaymentPage = () => {
     if (selectedMethod === 'cash' && !canConfirmCash) return;
 
     const orderNumber = getNextOrderNumber();
-    const formattedOrderNumber = `ORD-${Date.now()}`; // Create a formatted order number
+    const formattedOrderNumber = `ORD-${String(orderNumber).padStart(4, '0')}`; // e.g. ORD-0003
+
+// Use formattedOrderNumber in BOTH the sale and the navigate state
     
     const sale = {
       id: Date.now().toString(),

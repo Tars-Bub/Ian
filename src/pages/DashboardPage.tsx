@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSales, useExpenses, useShifts } from '@/hooks/useStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
-import { TrendingUp, ShoppingBag, DollarSign, Star, Package, Users, AlertTriangle, ArrowLeft, Download, Award, UserCheck, Moon, Sun, LogOut, Plus, Trash2, RefreshCw, Bell, Clock, X, CheckCheck, Undo2, Menu } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AlertTriangle, Download, UserCheck, Plus, Trash2, RefreshCw, Bell, X, CheckCheck, Undo2, Menu } from 'lucide-react';import { AnimatePresence, motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import { generateDailyReport } from '@/lib/generateReport';
 import { toast } from 'sonner';
@@ -14,7 +13,7 @@ import { useTheme } from '@/hooks/useTheme';
 import AccountSwitcher from '@/components/AccountSwitcher';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import ConfirmDialog from '@/components/ConfirmDialog';
-
+import { ShoppingBag, Coffee, Receipt, Clock, ArrowLeft, LogOut, Users, TrendingUp, DollarSign, Star, Moon, Sun, Package, Award, LogIn} from 'lucide-react';
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState<'sales' | 'expenses' | 'supplies' | 'cashiers' | 'users' | 'shifts' | 'menu'>('sales');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
@@ -25,7 +24,7 @@ const DashboardPage = () => {
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [voidingOrder, setVoidingOrder] = useState<{ id: string; total: number; number?: string } | null>(null);
   
-  const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier } = useAuth();
+  const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier, setUsers, users } = useAuth();
   const { theme, toggleTheme, setUserThemePreference } = useTheme();
   const { shifts, markShiftRead, markAllShiftsRead, unreadCount } = useShifts();
   const navigate = useNavigate();
@@ -117,6 +116,26 @@ const DashboardPage = () => {
       toast.success(`Switched to ${cashier.fullName}`);
       navigate('/pos', { replace: true });
     }
+  };
+
+  // Assign cashier to either cashier or inventory operation
+  const handleAssignOperation = (cashierId: string, operation: 'cashier' | 'inventory') => {
+    const cashier = users.find(u => u.id === cashierId);
+    if (!cashier) return;
+
+    const updatedUsers = users.map(u =>
+      u.id === cashierId ? { ...u, assignedOperation: operation } : u
+    );
+    setUsers(updatedUsers);
+    localStorage.setItem('users', JSON.stringify(updatedUsers));
+
+    // Also update currentUser in localStorage if this cashier is currently logged in
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (currentUser && currentUser.id === cashierId) {
+      localStorage.setItem('currentUser', JSON.stringify({ ...currentUser, assignedOperation: operation }));
+    }
+
+    toast.success(`${cashier.fullName} assigned to ${operation === 'cashier' ? 'Cashier' : 'Inventory'} Mode`);
   };
 
   const getDateRangeLabel = () => {
@@ -547,45 +566,75 @@ const DashboardPage = () => {
           )}
 
           {/* Users Tab */}
-          {activeTab === 'users' && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border p-5">
-              <h2 className="font-bold mb-4">User Management</h2>
-              <div className="space-y-3">
-                <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-lg">Admin User</p>
-                      <p className="text-xs text-gray-500">admin@maifah.com</p>
-                    </div>
-                    <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-600 text-xs font-bold">Admin</span>
-                  </div>
-                </div>
-                {cashiers.map(cashier => (
-                  <div key={cashier.id} className="bg-gray-50 rounded-xl p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold">{cashier.fullName}</p>
-                        <p className="text-xs text-gray-500">{cashier.email}</p>
-                        <p className="text-xs text-orange-600 mt-1">Code: {cashier.cashierCode}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleSwitchToCashier(cashier.id)} className="p-2 rounded-lg hover:bg-orange-100">
-                          <RefreshCw className="w-4 h-4 text-orange-600" />
-                        </button>
-                        <button onClick={() => { if (confirm(`Remove ${cashier.fullName}?`)) deleteUser(cashier.id); toast.success(`${cashier.fullName} removed`); }} className="p-2 rounded-lg hover:bg-red-100">
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => navigate('/signup')} className="w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold">
-                <Plus className="w-4 h-4 inline mr-2" />
-                Create New Account
+{activeTab === 'users' && (
+  <div className="bg-card rounded-2xl border border-border p-5">
+    <h2 className="font-bold mb-4 text-foreground">User Management</h2>
+    <div className="space-y-3">
+      <div className="bg-orange-50 dark:bg-orange-950 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="font-semibold text-lg text-foreground">Admin User</p>
+            <p className="text-xs text-muted-foreground">admin@maifah.com</p>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 text-xs font-bold">Admin</span>
+        </div>
+      </div>
+      {cashiers.map(cashier => (
+        <div key={cashier.id} className="bg-muted rounded-xl p-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="font-semibold text-foreground">{cashier.fullName}</p>
+              <p className="text-xs text-muted-foreground">{cashier.email}</p>
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Code: {cashier.cashierCode}</p>
+              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${
+                cashier.assignedOperation === 'inventory'
+                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400'
+                  : 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400'
+              }`}>
+                {cashier.assignedOperation === 'inventory' ? '📊 Inventory Mode' : '🛒 Cashier Mode'}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => handleSwitchToCashier(cashier.id)} className="p-2 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900" title="Switch to this cashier">
+                <RefreshCw className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              </button>
+              <button onClick={() => { if (confirm(`Remove ${cashier.fullName}?`)) deleteUser(cashier.id); toast.success(`${cashier.fullName} removed`); }} className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900" title="Delete cashier">
+                <Trash2 className="w-4 h-4 text-red-500" />
               </button>
             </div>
-          )}
+          </div>
+          {/* Assign Operation Buttons */}
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => handleAssignOperation(cashier.id, 'cashier')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                cashier.assignedOperation !== 'inventory'
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-orange-100 dark:hover:bg-orange-900 hover:text-orange-600'
+              }`}
+            >
+              🛒 Cashier Mode
+            </button>
+            <button
+              onClick={() => handleAssignOperation(cashier.id, 'inventory')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                cashier.assignedOperation === 'inventory'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-blue-100 dark:hover:bg-blue-900 hover:text-blue-600'
+              }`}
+            >
+              📊 Inventory Mode
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+    <button onClick={() => navigate('/signup')} className="w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold">
+      <Plus className="w-4 h-4 inline mr-2" />
+      Create New Account
+    </button>
+  </div>
+)}
         </div>
 
         <BottomNav />

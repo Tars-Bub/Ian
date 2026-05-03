@@ -11,15 +11,24 @@ import { useTheme } from '@/hooks/useTheme';
 import AccountSwitcher from '@/components/AccountSwitcher';
 import { toast } from 'sonner';
 import { getAllMenuItems, searchMenuItems } from '../../posLogic';  // ← Added
+import type { MenuItem } from '@/data/menu';
+
+type MenuItemData = {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  description?: string;
+  image?: string;
+};
 
 const POSPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
-  const [menuItems, setMenuItems] = useState([]);     // ← Dynamic
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
-
   const { cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount } = useCart();
   const navigate = useNavigate();
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -50,20 +59,20 @@ const POSPage = () => {
     }
   }, [authLoading, user, navigate]);
 
-  const filteredItems = useMemo(() => {
-    let items = menuItems;
-    if (selectedCategory !== 'All') {
-      items = items.filter(i => i.category === selectedCategory);
-    }
-    if (search) {
-      const searchLower = search.toLowerCase();
-      items = items.filter(i => 
-        i.name.toLowerCase().includes(searchLower) || 
-        (i.description && i.description.toLowerCase().includes(searchLower))
-      );
-    }
-    return items;
-  }, [menuItems, selectedCategory, search]);
+ const filteredItems = useMemo(() => {
+  let items = menuItems;
+  if (selectedCategory !== 'All') {
+    items = items.filter(i => i.category === selectedCategory);
+  }
+  if (search) {
+    const searchLower = search.toLowerCase();
+    items = items.filter(i =>
+      i.name.toLowerCase().includes(searchLower) ||
+      i.description?.toLowerCase().includes(searchLower)
+    );
+  }
+  return items;
+}, [menuItems, selectedCategory, search]);
 
   const getItemQty = (id: string) => cart.find(c => c.id === id)?.quantity || 0;
 
