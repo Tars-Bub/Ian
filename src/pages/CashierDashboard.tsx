@@ -159,6 +159,7 @@ const CashierDashboard = () => {
               </div>
             </div>
             <div className="flex gap-2">
+  {user.assignedOperation === 'inventory' && (
   <button
     onClick={() => navigate('/select')}
     title="Switch Mode"
@@ -166,6 +167,7 @@ const CashierDashboard = () => {
   >
     <ArrowLeftRight className="w-5 h-5 text-primary-foreground" />
   </button>
+)}
   <button
     onClick={handleThemeToggle}
     className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors"
