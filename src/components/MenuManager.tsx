@@ -170,14 +170,14 @@ export default function MenuManager() {
       </div>
 
       {/* Search & Filter */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
+<div className="flex flex-col gap-2">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input placeholder="Search menu items..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+          <Input placeholder="Search menu items..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 w-full" />
         </div>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-64">
-            <SelectValue />
+          <SelectTrigger className="w-full">
+                        <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Categories</SelectItem>

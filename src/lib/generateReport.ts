@@ -2,14 +2,13 @@ import jsPDF from 'jspdf';
 import type { SaleRecord, Expense } from '@/data/menu';
 import { categories } from '@/data/menu';
 
-export function generateDailyReport(
+export async function generateDailyReport(
   todaySales: SaleRecord[],
   todayExpenses: Expense[],
   todayRevenue: number,
   todayExpenseTotal: number,
   bestSeller: string
-) {
-  const doc = new jsPDF();
+) {  const doc = new jsPDF();
   const orange = '#E84C00';
   const darkText = '#1a1a1a';
   const grayText = '#666666';
@@ -235,5 +234,31 @@ export function generateDailyReport(
 
   // Download
   const fileDate = now.toISOString().split('T')[0];
-  doc.save(`MaifahPOS-Report-${fileDate}.pdf`);
-}
+  const fileName = `MaifahPOS-Report-${fileDate}.pdf`;
+  const isCapacitor = !!(window as any).Capacitor;
+
+  if (isCapacitor) {
+    try {
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      await Filesystem.writeFile({
+        path: `Download/${fileName}`,
+        data: pdfBase64,
+        directory: Directory.ExternalStorage,
+        recursive: true,
+      });
+      alert(`✅ Report saved to your Downloads folder as:\n${fileName}`);
+    } catch (e) {
+      // Fallback: open in browser if filesystem fails
+      try {
+        const pdfBlob = doc.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } catch (e2) {
+        alert('Could not save the report. Please try again.');
+      }
+    }
+  } else {
+    doc.save(fileName);
+  }}

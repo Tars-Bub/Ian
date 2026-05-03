@@ -19,16 +19,12 @@ const DashboardPage = () => {
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [voidingOrder, setVoidingOrder] = useState<{ id: string; total: number; number?: string } | null>(null);
-  
-  const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier, setUsers, users } = useAuth();
   const [filteredRevenue, setFilteredRevenue] = useState(0);
   const [filteredExpenses, setFilteredExpenses] = useState(0);
   const [filteredOrders, setFilteredOrders] = useState(0);
-  
-  const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier } = useAuth();
+  const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier, setUsers, users } = useAuth();
   const { theme, toggleTheme, setUserThemePreference } = useTheme();
   const { shifts, markShiftRead, markAllShiftsRead, unreadCount } = useShifts();
   const navigate = useNavigate();
@@ -48,10 +44,6 @@ const DashboardPage = () => {
   const chartData = getLast7DaysRevenue();
   const netProfit = todayRevenue - todayExpenseTotal;
   
-  // Filtered data states
-  const [filteredRevenue, setFilteredRevenue] = useState(0);
-  const [filteredExpenses, setFilteredExpenses] = useState(0);
-  const [filteredOrders, setFilteredOrders] = useState(0);
 
   // Redirect if not admin
   
@@ -220,8 +212,8 @@ const DashboardPage = () => {
 
   const weeklyData = getWeeklyData();
 
-  const handleGenerateReport = () => {
-    generateDailyReport(todaySales, todayExpenses, todayRevenue, todayExpenseTotal, getBestSeller());
+  const handleGenerateReport = async () => {
+    await generateDailyReport(todaySales, todayExpenses, todayRevenue, todayExpenseTotal, getBestSeller());
     toast.success('Report downloaded successfully');
   };
 
@@ -638,45 +630,6 @@ const DashboardPage = () => {
     </button>
   </div>
 )}
-          {activeTab === 'users' && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border p-5">
-              <h2 className="font-bold mb-4">User Management</h2>
-              <div className="space-y-3">
-                <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-lg">Admin User</p>
-                      <p className="text-xs text-gray-500">admin@maifah.com</p>
-                    </div>
-                    <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-600 text-xs font-bold">Admin</span>
-                  </div>
-                </div>
-                {cashiers.map(cashier => (
-                  <div key={cashier.id} className="bg-gray-50 rounded-xl p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold">{cashier.fullName}</p>
-                        <p className="text-xs text-gray-500">{cashier.email}</p>
-                        <p className="text-xs text-orange-600 mt-1">Code: {cashier.cashierCode}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleSwitchToCashier(cashier.id)} className="p-2 rounded-lg hover:bg-orange-100">
-                          <RefreshCw className="w-4 h-4 text-orange-600" />
-                        </button>
-                        <button onClick={() => { if (confirm(`Remove ${cashier.fullName}?`)) deleteUser(cashier.id); toast.success(`${cashier.fullName} removed`); }} className="p-2 rounded-lg hover:bg-red-100">
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => navigate('/signup')} className="w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold">
-                <Plus className="w-4 h-4 inline mr-2" />
-                Create New Account
-              </button>
-            </div>
-          )}
         </div>
 
         <BottomNav />
