@@ -50,7 +50,7 @@ const SignUpPage = () => {
     }
     
     setLoading(true);
-    const result = signup(fullName, email, password, role);
+    const result = await signup(fullName, email, password, role);
     setLoading(false);
     
     if (result.success) {

@@ -149,9 +149,9 @@ const CashierDashboard = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate('/pos')}
-                className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-primary-foreground" />
+                className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors flex items-center justify-center"
+>
+  <ArrowLeft className="w-5 h-5 text-primary-foreground" />
               </button>
               <div>
                 <h1 className="text-xl font-bold text-primary-foreground">Cashier Dashboard</h1>
@@ -163,15 +163,15 @@ const CashierDashboard = () => {
   <button
     onClick={() => navigate('/select')}
     title="Switch Mode"
-    className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors"
-  >
-    <ArrowLeftRight className="w-5 h-5 text-primary-foreground" />
+    className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors flex items-center justify-center"
+>
+  <ArrowLeftRight className="w-5 h-5 text-primary-foreground" />
   </button>
 )}
   <button
     onClick={handleThemeToggle}
-    className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors"
-  >
+    className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors flex items-center justify-center"
+>
                 {theme === 'light' ? (
                   <Moon className="w-5 h-5 text-primary-foreground" />
                 ) : (
@@ -180,14 +180,14 @@ const CashierDashboard = () => {
               </button>
               <button
                 onClick={() => setShowAccountSwitcher(true)}
-                className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors"
-              >
+                className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors flex items-center justify-center"
+>
                 <Users className="w-5 h-5 text-primary-foreground" />
               </button>
               <button
                 onClick={handleLogout}
-                className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors"
-              >
+                className="p-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors flex items-center justify-center"
+>
                 <LogOut className="w-5 h-5 text-primary-foreground" />
               </button>
             </div>
