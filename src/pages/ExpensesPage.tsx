@@ -1,335 +1,225 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Pencil, X, ArrowLeft, DollarSign, TrendingDown, Calendar } from 'lucide-react';
-import { useExpenses, useSales } from '@/hooks/useStore';
-import { expenseCategories } from '@/data/menu';
-import BottomNav from '@/components/BottomNav';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Plus, Trash2, ArrowLeft, DollarSign, Calendar, Tag } from 'lucide-react';
+import { useExpenses } from '@/hooks/useStore';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-
-// Validation function
-const validateExpense = (description: string, amount: number, category: string) => {
-  if (!description.trim()) {
-    return { valid: false, error: 'Description is required' };
-  }
-  if (description.length > 100) {
-    return { valid: false, error: 'Description is too long (max 100 characters)' };
-  }
-  if (isNaN(amount) || amount <= 0) {
-    return { valid: false, error: 'Please enter a valid amount greater than 0' };
-  }
-  if (!category) {
-    return { valid: false, error: 'Please select a category' };
-  }
-  return { valid: true, error: null };
-};
+import BottomNav from '@/components/BottomNav';
+import { expenseCategories } from '@/data/menu';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const ExpensesPage = () => {
   const navigate = useNavigate();
-  const { expenses, addExpense, updateExpense, deleteExpense, todayExpenses, todayExpenseTotal } = useExpenses();
-  const { todayRevenue } = useSales();
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [desc, setDesc] = useState('');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState(expenseCategories[0]);
-  const [date, setDate] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const { user } = useAuth();
+  const { expenses, addExpense, deleteExpense, todayExpenseTotal } = useExpenses();
+  const [showForm, setShowForm] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<{ id: string; amount: number; description: string } | null>(null);
+  const [formData, setFormData] = useState({
+    description: '',
+    amount: '',
+    category: expenseCategories[0],
+    notes: ''
   });
-  const [errors, setErrors] = useState<{ description?: string; amount?: string; category?: string }>({});
 
-  const netProfit = todayRevenue - todayExpenseTotal;
+  const categories = expenseCategories;
 
-  const resetForm = () => {
-    setDesc('');
-    setAmount('');
-    setCategory(expenseCategories[0]);
-    const now = new Date();
-    setDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
-    setEditingId(null);
-    setErrors({});
-  };
-
-  const openAdd = () => {
-    resetForm();
-    setSheetOpen(true);
-  };
-
-  const openEdit = (expense: { id: string; description: string; amount: number; category: string; date: string }) => {
-    setEditingId(expense.id);
-    setDesc(expense.description);
-    setAmount(expense.amount.toString());
-    setCategory(expense.category);
-    setDate(new Date(expense.date).toISOString().split('T')[0]);
-    setSheetOpen(true);
-    setErrors({});
-  };
-
-  const handleSubmit = () => {
-    const amountNum = parseFloat(amount);
-    
-    // Validate
-    const validation = validateExpense(desc, amountNum, category);
-    
-    if (!validation.valid) {
-      toast.error(validation.error);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.description || !formData.amount) {
+      toast.error('Please fill in all required fields');
       return;
     }
-    
-    const expenseData = {
-      id: editingId || Date.now().toString(),
-      description: desc.trim(),
-      amount: amountNum,
-      category,
-      date: new Date(date + 'T12:00:00').toString(),
+
+    const newExpense = {
+      id: Date.now().toString(),
+      description: formData.description,
+      amount: parseFloat(formData.amount),
+      category: formData.category,
+      date: new Date().toISOString(),
+      createdBy: user?.id || 'unknown'
     };
 
-    if (editingId) {
-      updateExpense(expenseData);
-      toast.success('Expense updated successfully');
-    } else {
-      addExpense(expenseData);
-      toast.success('Expense added successfully');
-    }
-
-    resetForm();
-    setSheetOpen(false);
+    addExpense(newExpense);
+    toast.success('Expense added successfully');
+    setFormData({ description: '', amount: '', category: categories[0], notes: '' });
+    setShowForm(false);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete "${name}"?`)) {
-      deleteExpense(id);
-      toast.success('Expense deleted successfully');
-    }
+  const handleDeleteExpense = (id: string, amount: number, description: string) => {
+    setExpenseToDelete({ id, amount, description });
+    setShowDeleteDialog(true);
   };
 
-  // Calculate category totals for all expenses
-  const categoryTotals: Record<string, number> = {};
-  expenses.forEach(e => {
-    categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.amount;
-  });
-
-  // Sort expenses by date (newest first)
-  const sortedExpenses = [...expenses].sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  const confirmDeleteExpense = () => {
+    if (expenseToDelete) {
+      deleteExpense(expenseToDelete.id);
+      toast.success(`Expense "${expenseToDelete.description}" deleted`);
+      setShowDeleteDialog(false);
+      setExpenseToDelete(null);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-background pb-32">
-      {/* Header with Back Button */}
-      <div className="gradient-red px-4 pt-6 pb-6 rounded-b-3xl">
-        <div className="flex items-center gap-3 mb-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-32">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-4 pt-6 pb-6 sticky top-0 z-10">
+        <div className="flex justify-between items-center">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 rounded-full bg-destructive-foreground/20 hover:bg-destructive-foreground/30 transition-colors"
+            className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
           >
-            <ArrowLeft className="w-5 h-5 text-destructive-foreground" />
+            <ArrowLeft className="w-5 h-5 text-white" />
           </button>
-          <div>
-            <h1 className="text-xl font-bold text-destructive-foreground mb-1">Expenses</h1>
-            <p className="text-sm text-destructive-foreground/70">Track your spending</p>
-          </div>
+          <h1 className="text-xl font-bold text-white">Expenses</h1>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center"
+          >
+            <Plus className="w-5 h-5 text-white" />
+          </button>
         </div>
-        <div className="mt-4 bg-destructive-foreground/20 backdrop-blur-sm rounded-2xl p-4">
-          <p className="text-sm text-destructive-foreground/70">Today's Expenses</p>
-          <p className="text-3xl font-black text-destructive-foreground">₱{todayExpenseTotal.toLocaleString()}</p>
+        <div className="mt-4 bg-white/20 backdrop-blur-sm rounded-2xl p-4">
+          <p className="text-sm text-white/80">Today's Total</p>
+          <p className="text-3xl font-black text-white">₱{todayExpenseTotal.toLocaleString()}</p>
         </div>
       </div>
 
-      <div className="px-4 -mt-2">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-card rounded-2xl border border-border p-3 shadow-card">
-            <DollarSign className="w-5 h-5 text-success mb-1" />
-            <p className="text-xs text-muted-foreground">Revenue</p>
-            <p className="font-bold text-success text-sm">₱{todayRevenue.toLocaleString()}</p>
-          </div>
-          <div className="bg-card rounded-2xl border border-border p-3 shadow-card">
-            <TrendingDown className="w-5 h-5 text-expense mb-1" />
-            <p className="text-xs text-muted-foreground">Expenses</p>
-            <p className="font-bold text-expense text-sm">₱{todayExpenseTotal.toLocaleString()}</p>
-          </div>
-          <div className="bg-card rounded-2xl border border-border p-3 shadow-card">
-            <DollarSign className="w-5 h-5 text-primary mb-1" />
-            <p className="text-xs text-muted-foreground">Net Profit</p>
-            <p className={`font-bold text-sm ${netProfit >= 0 ? 'text-success' : 'text-expense'}`}>
-              ₱{netProfit.toLocaleString()}
-            </p>
-          </div>
-        </div>
+      <div className="px-4 mt-4 space-y-4">
+        {/* Add Expense Form */}
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-200"
+          >
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description *
+                </label>
+                <input
+                  type="text"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="e.g., Chicken order, Electricity bill"
+                  required
+                />
+              </div>
 
-        {/* Category Breakdown */}
-        {Object.keys(categoryTotals).length > 0 && (
-          <div className="mb-4 bg-card rounded-2xl border border-border p-4 shadow-card">
-            <h2 className="font-bold text-foreground mb-3">Category Breakdown</h2>
-            <div className="space-y-2">
-              {Object.entries(categoryTotals)
-                .sort((a, b) => b[1] - a[1])
-                .map(([cat, total]) => (
-                  <div key={cat} className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">{cat}</span>
-                    <span className="font-bold text-expense text-sm">₱{total.toLocaleString()}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Amount *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₱</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    className="w-full pl-8 pr-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Category
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold"
+                >
+                  Add Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 py-3 rounded-xl bg-gray-200 text-gray-700 font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </motion.div>
         )}
 
-        {/* Expense List Header */}
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="font-bold text-foreground">All Expenses</h2>
-          <span className="text-xs text-muted-foreground">{expenses.length} records</span>
-        </div>
-
-        {/* Expense List */}
-        {sortedExpenses.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border p-8 text-center shadow-card">
-            <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">No expenses recorded</p>
-            <p className="text-xs text-muted-foreground mt-1">Click the + button to add your first expense</p>
+        {/* Expenses List */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="font-bold text-gray-800 dark:text-white">Recent Expenses</h2>
           </div>
-        ) : (
-          <div className="space-y-2 mb-4">
-            {sortedExpenses.map(expense => (
-              <motion.div
-                key={expense.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-card rounded-xl border border-border p-3 shadow-card hover:shadow-md transition-shadow"
-              >
-                <div className="flex justify-between items-start mb-1">
+          
+          <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
+            {expenses.length === 0 ? (
+              <div className="text-center py-12">
+                <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-500">No expenses yet</p>
+                <p className="text-xs text-gray-400 mt-1">Tap the + button to add</p>
+              </div>
+            ) : (
+              expenses.map(expense => (
+                <div key={expense.id} className="p-4 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                   <div className="flex-1">
-                    <p className="font-semibold text-foreground text-sm">{expense.description}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-expense/10 text-expense">
+                    <p className="font-medium text-gray-800 dark:text-white">{expense.description}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <Tag className="w-3 h-3" />
                         {expense.category}
                       </span>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {new Date(expense.date).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <p className="font-bold text-expense mr-2">₱{expense.amount.toLocaleString()}</p>
-                    <button 
-                      onClick={() => openEdit(expense)} 
-                      className="p-1.5 rounded-full hover:bg-primary/10 transition-colors"
+                  <div className="flex items-center gap-3">
+                    <p className="font-bold text-red-600 dark:text-red-400 text-lg">
+                      ₱{expense.amount.toLocaleString()}
+                    </p>
+                    <button
+                      onClick={() => handleDeleteExpense(expense.id, expense.amount, expense.description)}
+                      className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 text-red-500 transition-colors"
                     >
-                      <Pencil className="w-4 h-4 text-primary" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(expense.id, expense.description)} 
-                      className="p-1.5 rounded-full hover:bg-expense/10 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4 text-expense" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
-              </motion.div>
-            ))}
+              ))
+            )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* FAB Button */}
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={openAdd}
-        className="fixed bottom-20 right-4 w-14 h-14 rounded-full gradient-red shadow-float flex items-center justify-center z-40 hover:shadow-lg transition-shadow"
-      >
-        <Plus className="w-6 h-6 text-destructive-foreground" />
-      </motion.button>
-
-      {/* Add/Edit Expense Sheet */}
-      <AnimatePresence>
-        {sheetOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-foreground/30 z-50"
-              onClick={() => { setSheetOpen(false); resetForm(); }}
-            />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 bg-card rounded-t-3xl z-50 p-6"
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-foreground">
-                  {editingId ? 'Edit Expense' : 'Add Expense'}
-                </h2>
-                <button 
-                  onClick={() => { setSheetOpen(false); resetForm(); }} 
-                  className="p-2 rounded-full hover:bg-secondary transition-colors"
-                >
-                  <X className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <input
-                    placeholder="Description (e.g., Rice, Vegetables, etc.)"
-                    value={desc}
-                    onChange={e => setDesc(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-border bg-secondary text-foreground outline-none text-sm focus:ring-2 focus:ring-expense"
-                  />
-                  {errors.description && (
-                    <p className="text-xs text-red-500 mt-1">{errors.description}</p>
-                  )}
-                </div>
-                <div>
-                  <input
-                    type="number"
-                    placeholder="Amount"
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-border bg-secondary text-foreground outline-none text-sm focus:ring-2 focus:ring-expense"
-                    min="0.01"
-                    step="0.01"
-                  />
-                  {errors.amount && (
-                    <p className="text-xs text-red-500 mt-1">{errors.amount}</p>
-                  )}
-                </div>
-                <div>
-                  <select
-                    value={category}
-                    onChange={e => setCategory(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-border bg-secondary text-foreground outline-none text-sm focus:ring-2 focus:ring-expense"
-                  >
-                    {expenseCategories.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={e => setDate(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-border bg-secondary text-foreground outline-none text-sm focus:ring-2 focus:ring-expense"
-                />
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleSubmit}
-                  className="w-full py-4 rounded-2xl gradient-red text-destructive-foreground font-bold text-lg"
-                >
-                  {editingId ? 'Update Expense' : 'Add Expense'}
-                </motion.button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
       <BottomNav />
+
+      {/* Delete Expense Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        onClose={() => { setShowDeleteDialog(false); setExpenseToDelete(null); }}
+        onConfirm={confirmDeleteExpense}
+        title="Delete Expense"
+        message={`Are you sure you want to delete this expense?\n\n${expenseToDelete?.description}\nAmount: ₱${expenseToDelete?.amount?.toLocaleString() || 0}\n\nThis action cannot be undone!`}
+        confirmText="Yes, Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 };

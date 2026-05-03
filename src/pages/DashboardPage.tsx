@@ -20,11 +20,15 @@ const DashboardPage = () => {
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   
-  // Void dialog state
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [voidingOrder, setVoidingOrder] = useState<{ id: string; total: number; number?: string } | null>(null);
   
   const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier, setUsers, users } = useAuth();
+  const [filteredRevenue, setFilteredRevenue] = useState(0);
+  const [filteredExpenses, setFilteredExpenses] = useState(0);
+  const [filteredOrders, setFilteredOrders] = useState(0);
+  
+  const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier } = useAuth();
   const { theme, toggleTheme, setUserThemePreference } = useTheme();
   const { shifts, markShiftRead, markAllShiftsRead, unreadCount } = useShifts();
   const navigate = useNavigate();
@@ -50,6 +54,7 @@ const DashboardPage = () => {
   const [filteredOrders, setFilteredOrders] = useState(0);
 
   // Redirect if not admin
+  
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
@@ -60,7 +65,6 @@ const DashboardPage = () => {
     }
   }, [isLoading, isAuthenticated, user, navigate]);
 
-  // Filter data based on date range
   useEffect(() => {
     const now = new Date();
     let startDate = new Date();
@@ -92,7 +96,6 @@ const DashboardPage = () => {
   try {
     cashierPerformance = getCashierPerformance ? getCashierPerformance() : [];
   } catch (error) {
-    console.error('Error getting cashier performance:', error);
     cashierPerformance = [];
   }
   
@@ -108,6 +111,7 @@ const DashboardPage = () => {
 
   const handleLogout = () => {
     logout();
+    navigate('/login');
   };
 
   const handleSwitchToCashier = (cashierId: string) => {
@@ -153,17 +157,24 @@ const DashboardPage = () => {
   };
 
   const confirmVoidOrder = () => {
-    if (voidingOrder) {
-      const success = voidOrder(voidingOrder.id);
-      if (success) {
-        toast.success(`Order voided! ₱${voidingOrder.total.toLocaleString()} refunded.`);
-        setTimeout(() => window.location.reload(), 500);
-      } else {
-        toast.error('Failed to void order');
-      }
+  if (voidingOrder) {
+    const success = voidOrder(voidingOrder.id);
+    if (success) {
+      toast.success(`Order voided! ₱${voidingOrder.total.toLocaleString()} refunded.`);
+      setShowVoidDialog(false);
+      setVoidingOrder(null);
+      // REMOVE THIS LINE - causes 404
+      // setTimeout(() => window.location.reload(), 500);
+      
+      // Instead, manually update the UI by refreshing the sales list
+      // The store already updated, so just close dialog
+    } else {
+      toast.error('Failed to void order');
+      setShowVoidDialog(false);
       setVoidingOrder(null);
     }
-  };
+  }
+};
 
   const getCategorySales = () => {
     const categories: Record<string, number> = {};
@@ -269,7 +280,6 @@ const DashboardPage = () => {
             </div>
           </div>
           
-          {/* Date Range Selector */}
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
             <button onClick={() => setDateRange('today')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${dateRange === 'today' ? 'bg-white text-orange-600' : 'bg-white/20 text-white hover:bg-white/30'}`}>Today</button>
             <button onClick={() => setDateRange('week')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${dateRange === 'week' ? 'bg-white text-orange-600' : 'bg-white/20 text-white hover:bg-white/30'}`}>This Week</button>
@@ -283,33 +293,31 @@ const DashboardPage = () => {
         </div>
 
         <div className="px-4 -mt-2 pb-4">
-          {/* Summary Cards */}
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
               <DollarSign className="w-5 h-5 text-green-500 mb-2" />
               <p className="text-xs text-gray-500 dark:text-gray-400">{getDateRangeLabel()} Revenue</p>
               <p className="font-bold text-green-600 dark:text-green-400 text-xl">₱{filteredRevenue.toLocaleString()}</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
               <TrendingUp className="w-5 h-5 text-red-500 mb-2" />
               <p className="text-xs text-gray-500 dark:text-gray-400">{getDateRangeLabel()} Expenses</p>
               <p className="font-bold text-red-600 dark:text-red-400 text-xl">₱{filteredExpenses.toLocaleString()}</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
               <DollarSign className="w-5 h-5 text-orange-500 mb-2" />
               <p className="text-xs text-gray-500 dark:text-gray-400">{getDateRangeLabel()} Net Profit</p>
               <p className={`font-bold text-xl ${(filteredRevenue - filteredExpenses) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 ₱{(filteredRevenue - filteredExpenses).toLocaleString()}
               </p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
               <ShoppingBag className="w-5 h-5 text-orange-500 mb-2" />
               <p className="text-xs text-gray-500 dark:text-gray-400">{getDateRangeLabel()} Orders</p>
               <p className="font-bold text-gray-800 dark:text-white text-xl">{filteredOrders}</p>
             </div>
           </div>
 
-          {/* Tab Navigation */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
             <div className="flex gap-2" style={{ minWidth: 'min-content' }}>
               {[
@@ -351,7 +359,6 @@ const DashboardPage = () => {
             </ErrorBoundary>
           )}
 
-          {/* Sales Tab */}
           {activeTab === 'sales' && (
             <div className="space-y-5">
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
@@ -441,7 +448,6 @@ const DashboardPage = () => {
             </div>
           )}
 
-          {/* Expenses Tab */}
           {activeTab === 'expenses' && (
             <div className="space-y-5">
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
@@ -474,14 +480,12 @@ const DashboardPage = () => {
             </div>
           )}
 
-          {/* Supplies Tab */}
           {activeTab === 'supplies' && (
             <ErrorBoundary>
               <SuppliesManager />
             </ErrorBoundary>
           )}
 
-          {/* Cashiers Tab */}
           {activeTab === 'cashiers' && (
             <div className="space-y-5">
               {topPerformer && topPerformer.sales > 0 && (
@@ -513,7 +517,6 @@ const DashboardPage = () => {
             </div>
           )}
 
-          {/* Shifts Tab */}
           {activeTab === 'shifts' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -635,6 +638,45 @@ const DashboardPage = () => {
     </button>
   </div>
 )}
+          {activeTab === 'users' && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border p-5">
+              <h2 className="font-bold mb-4">User Management</h2>
+              <div className="space-y-3">
+                <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-lg">Admin User</p>
+                      <p className="text-xs text-gray-500">admin@maifah.com</p>
+                    </div>
+                    <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-600 text-xs font-bold">Admin</span>
+                  </div>
+                </div>
+                {cashiers.map(cashier => (
+                  <div key={cashier.id} className="bg-gray-50 rounded-xl p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold">{cashier.fullName}</p>
+                        <p className="text-xs text-gray-500">{cashier.email}</p>
+                        <p className="text-xs text-orange-600 mt-1">Code: {cashier.cashierCode}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleSwitchToCashier(cashier.id)} className="p-2 rounded-lg hover:bg-orange-100">
+                          <RefreshCw className="w-4 h-4 text-orange-600" />
+                        </button>
+                        <button onClick={() => { if (confirm(`Remove ${cashier.fullName}?`)) deleteUser(cashier.id); toast.success(`${cashier.fullName} removed`); }} className="p-2 rounded-lg hover:bg-red-100">
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => navigate('/signup')} className="w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold">
+                <Plus className="w-4 h-4 inline mr-2" />
+                Create New Account
+              </button>
+            </div>
+          )}
         </div>
 
         <BottomNav />
@@ -642,7 +684,6 @@ const DashboardPage = () => {
 
       <AccountSwitcher isOpen={showAccountSwitcher} onClose={() => setShowAccountSwitcher(false)} />
 
-      {/* Notifications Panel */}
       <AnimatePresence>
         {showNotifications && (
           <motion.div
@@ -692,7 +733,6 @@ const DashboardPage = () => {
         )}
       </AnimatePresence>
 
-      {/* Void Confirmation Dialog */}
       <ConfirmDialog
         isOpen={showVoidDialog}
         onClose={() => { setShowVoidDialog(false); setVoidingOrder(null); }}
@@ -701,7 +741,6 @@ const DashboardPage = () => {
         message={`Are you sure you want to void this order?\n\nOrder: ${voidingOrder?.number || 'N/A'}\nAmount: ₱${voidingOrder?.total?.toLocaleString() || 0}\n\nThis action cannot be undone!`}
         confirmText="Yes, Void Order"
         cancelText="Cancel"
-        type="danger"
       />
     </>
   );

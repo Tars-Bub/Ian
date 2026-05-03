@@ -41,7 +41,6 @@ const expensesStore = createStore<Expense[]>('pos_expenses', []);
 const cartStore = createStore<CartItem[]>('pos_cart_temp', []);
 const shiftsStore = createStore<ShiftRecord[]>('pos_shifts', []);
 
-// Use React 18's useSyncExternalStore for reliable reactivity
 function useStoreData<T>(store: { get: () => T; subscribe: (l: Listener) => () => void }): T {
   return useSyncExternalStore(store.subscribe, store.get, store.get);
 }
@@ -55,24 +54,20 @@ export function useSales() {
     salesStore.set(prev => [sale, ...prev]);
   }, []);
 
-  // VOID ORDER FUNCTION - Removes order and updates analytics
   const voidOrder = useCallback((orderId: string) => {
     const orderToVoid = sales.find(s => s.id === orderId);
     if (!orderToVoid) return false;
     
-    // Remove the order from sales
     salesStore.set(prev => prev.filter(sale => sale.id !== orderId));
     
-    // Store void record for audit trail
     const voidRecord = {
       id: `void_${Date.now()}`,
       orderId: orderId,
-      orderNumber: orderToVoid.orderNumber,
+      orderNumber: orderToVoid.orderNumber || orderToVoid.id.slice(-6),
       amount: orderToVoid.total,
       items: orderToVoid.items,
       cashierName: orderToVoid.cashierName,
       paymentMethod: orderToVoid.paymentMethod,
-      reason: 'Customer refund / Voided order',
       voidedAt: new Date().toISOString()
     };
     
@@ -82,12 +77,10 @@ export function useSales() {
     return true;
   }, [sales]);
 
-  // Get all voided orders for reporting
   const getVoidedOrders = useCallback(() => {
     return JSON.parse(localStorage.getItem('pos_voids') || '[]');
   }, []);
 
-  // Get total voided amount for today
   const getTodayVoidedAmount = useCallback(() => {
     const voids = JSON.parse(localStorage.getItem('pos_voids') || '[]');
     const today = new Date().toDateString();
@@ -127,7 +120,6 @@ export function useSales() {
     return days;
   };
 
-  // Get cashier performance for today
   const getCashierPerformance = () => {
     const cashierMap = new Map<string, { name: string; sales: number; orders: number; items: number }>();
     
@@ -145,7 +137,6 @@ export function useSales() {
     return Array.from(cashierMap.values()).sort((a, b) => b.sales - a.sales);
   };
 
-  // Get sales for a specific cashier (by name) — used for "Recent Orders" fix
   const getSalesForCashier = (cashierName: string) => {
     return sales.filter(s => s.cashierName === cashierName);
   };
@@ -219,8 +210,6 @@ export function useCart() {
   return { cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount };
 }
 
-// --- Shift Store ---
-
 export function useShifts() {
   const shifts = useStoreData(shiftsStore);
 
@@ -240,5 +229,4 @@ export function useShifts() {
   const todayShifts = shifts.filter(s => new Date(s.shiftEnd).toDateString() === new Date().toDateString());
 
   return { shifts, addShift, markShiftRead, markAllShiftsRead, unreadCount, todayShifts };
-
 }
