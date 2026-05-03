@@ -11,20 +11,20 @@ interface CartDrawerProps {
   cartTotal: number;
   onAdd: (item: CartItem) => void;
   onRemove: (id: string) => void;
+  onClear: () => void;
   onCheckout: () => void;
 }
 
-const CartDrawer = ({ open, onClose, cart, cartTotal, onAdd, onRemove, onCheckout }: CartDrawerProps) => {
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+const CartDrawer = ({ open, onClose, cart, cartTotal, onAdd, onRemove, onClear, onCheckout }: CartDrawerProps) => {  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   const handleImageError = (id: string) => {
     setImageErrors(prev => ({ ...prev, [id]: true }));
   };
 
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
   const handleClearCart = () => {
-    if (confirm('Clear all items from cart?')) {
-      cart.forEach(item => onRemove(item.id));
-    }
+    setShowClearConfirm(true);
   };
 
   return (
@@ -38,8 +38,7 @@ const CartDrawer = ({ open, onClose, cart, cartTotal, onAdd, onRemove, onCheckou
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-orange-500 to-orange-600">
-            <div className="flex items-center gap-2">
+<div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-orange-500 to-orange-600 relative">            <div className="flex items-center gap-2">
               <button onClick={onClose} className="p-2 rounded-full hover:bg-white/20 transition-colors">
                 <ArrowLeft className="w-5 h-5 text-white" />
               </button>
@@ -50,13 +49,36 @@ const CartDrawer = ({ open, onClose, cart, cartTotal, onAdd, onRemove, onCheckou
               </span>
             </div>
             {cart.length > 0 && (
-              <button
-                onClick={handleClearCart}
-                className="p-2 rounded-full hover:bg-white/20 transition-colors"
-              >
-                <Trash2 className="w-4 h-4 text-white" />
-              </button>
-            )}
+  <>
+    <button
+      onClick={handleClearCart}
+      className="p-2 rounded-full hover:bg-white/20 transition-colors"
+    >
+      <Trash2 className="w-4 h-4 text-white" />
+    </button>
+
+    {showClearConfirm && (
+      <div className="absolute top-16 right-4 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-4 z-50 w-64 border border-gray-200 dark:border-gray-700">
+        <p className="font-semibold text-gray-800 dark:text-white text-sm mb-1">Clear all items?</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">This will remove everything from your cart.</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowClearConfirm(false)}
+            className="flex-1 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { onClear(); setShowClearConfirm(false); }}
+            className="flex-1 py-2 rounded-xl bg-red-500 text-white text-sm font-bold"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    )}
+  </>
+)}
           </div>
 
           {/* Cart Items - Scrollable */}

@@ -145,14 +145,11 @@ const POSPage = () => {
                 <p className="text-xs text-white/80">Cashier: {user.fullName}</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={handleThemeToggle} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30">
-                  {theme === 'light' ? <Moon className="w-5 h-5 text-white" /> : <Sun className="w-5 h-5 text-white" />}
+<button onClick={handleThemeToggle} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center">                  {theme === 'light' ? <Moon className="w-5 h-5 text-white" /> : <Sun className="w-5 h-5 text-white" />}
                 </button>
-                <button onClick={() => setShowAccountSwitcher(true)} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30">
-                  <Users className="w-5 h-5 text-white" />
+<button onClick={() => setShowAccountSwitcher(true)} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center">                  <Users className="w-5 h-5 text-white" />
                 </button>
-                <button onClick={handleLogout} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30">
-                  <LogOut className="w-5 h-5 text-white" />
+<button onClick={handleLogout} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center">                  <LogOut className="w-5 h-5 text-white" />
                 </button>
               </div>
             </div>
@@ -242,6 +239,7 @@ const POSPage = () => {
           cartTotal={cartTotal}
           onAdd={addToCart}
           onRemove={removeFromCart}
+          onClear={clearCart}
           onCheckout={handleCheckout}
         />
 
