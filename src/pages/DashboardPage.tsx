@@ -2,18 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSales, useExpenses, useShifts } from '@/hooks/useStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
-import { AlertTriangle, Download, UserCheck, Plus, Trash2, RefreshCw, Bell, X, CheckCheck, Undo2, Menu } from 'lucide-react';import { AnimatePresence, motion } from 'framer-motion';
+import { TrendingUp, ShoppingBag, DollarSign, Star, Package, Users, AlertTriangle, ArrowLeft, Download, Award, UserCheck, Moon, Sun, LogOut, Plus, Trash2, RefreshCw, Bell, Clock, X, CheckCheck, Undo2, Menu } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import { generateDailyReport } from '@/lib/generateReport';
 import { toast } from 'sonner';
 import SuppliesManager from '@/components/SuppliesManager';
-import MenuManager from '@/components/MenuManager';   // ← Added
+import MenuManager from '@/components/MenuManager';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import AccountSwitcher from '@/components/AccountSwitcher';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { ShoppingBag, Coffee, Receipt, Clock, ArrowLeft, LogOut, Users, TrendingUp, DollarSign, Star, Moon, Sun, Package, Award, LogIn} from 'lucide-react';
+
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState<'sales' | 'expenses' | 'supplies' | 'cashiers' | 'users' | 'shifts' | 'menu'>('sales');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
@@ -21,10 +22,10 @@ const DashboardPage = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [voidingOrder, setVoidingOrder] = useState<{ id: string; total: number; number?: string } | null>(null);
+  const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier, setUsers, users } = useAuth();
   const [filteredRevenue, setFilteredRevenue] = useState(0);
   const [filteredExpenses, setFilteredExpenses] = useState(0);
   const [filteredOrders, setFilteredOrders] = useState(0);
-  const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier, setUsers, users } = useAuth();
   const { theme, toggleTheme, setUserThemePreference } = useTheme();
   const { shifts, markShiftRead, markAllShiftsRead, unreadCount } = useShifts();
   const navigate = useNavigate();
@@ -114,7 +115,6 @@ const DashboardPage = () => {
     }
   };
 
-  // Assign cashier to either cashier or inventory operation
   const handleAssignOperation = (cashierId: string, operation: 'cashier' | 'inventory') => {
     const cashier = users.find(u => u.id === cashierId);
     if (!cashier) return;
@@ -125,7 +125,6 @@ const DashboardPage = () => {
     setUsers(updatedUsers);
     localStorage.setItem('users', JSON.stringify(updatedUsers));
 
-    // Also update currentUser in localStorage if this cashier is currently logged in
     const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
     if (currentUser && currentUser.id === cashierId) {
       localStorage.setItem('currentUser', JSON.stringify({ ...currentUser, assignedOperation: operation }));
@@ -149,24 +148,19 @@ const DashboardPage = () => {
   };
 
   const confirmVoidOrder = () => {
-  if (voidingOrder) {
-    const success = voidOrder(voidingOrder.id);
-    if (success) {
-      toast.success(`Order voided! ₱${voidingOrder.total.toLocaleString()} refunded.`);
-      setShowVoidDialog(false);
-      setVoidingOrder(null);
-      // REMOVE THIS LINE - causes 404
-      // setTimeout(() => window.location.reload(), 500);
-      
-      // Instead, manually update the UI by refreshing the sales list
-      // The store already updated, so just close dialog
-    } else {
-      toast.error('Failed to void order');
-      setShowVoidDialog(false);
-      setVoidingOrder(null);
+    if (voidingOrder) {
+      const success = voidOrder(voidingOrder.id);
+      if (success) {
+        toast.success(`Order voided! ₱${voidingOrder.total.toLocaleString()} refunded.`);
+        setShowVoidDialog(false);
+        setVoidingOrder(null);
+      } else {
+        toast.error('Failed to void order');
+        setShowVoidDialog(false);
+        setVoidingOrder(null);
+      }
     }
-  }
-};
+  };
 
   const getCategorySales = () => {
     const categories: Record<string, number> = {};
@@ -299,7 +293,7 @@ const DashboardPage = () => {
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
               <DollarSign className="w-5 h-5 text-orange-500 mb-2" />
               <p className="text-xs text-gray-500 dark:text-gray-400">{getDateRangeLabel()} Net Profit</p>
-              <p className={`font-bold text-xl ${(filteredRevenue - filteredExpenses) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              <p className={`font-bold text-xl ${(filteredRevenue - filteredExpenses) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 ₱{(filteredRevenue - filteredExpenses).toLocaleString()}
               </p>
             </div>
@@ -310,6 +304,7 @@ const DashboardPage = () => {
             </div>
           </div>
 
+          {/* Tab Navigation */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
             <div className="flex gap-2" style={{ minWidth: 'min-content' }}>
               {[
@@ -338,7 +333,7 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* ====================== MENU TAB ====================== */}
+          {/* Menu Tab */}
           {activeTab === 'menu' && (
             <ErrorBoundary fallback={
               <div className="bg-red-50 p-8 text-center rounded-2xl">
@@ -351,6 +346,7 @@ const DashboardPage = () => {
             </ErrorBoundary>
           )}
 
+          {/* Sales Tab */}
           {activeTab === 'sales' && (
             <div className="space-y-5">
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
@@ -359,7 +355,7 @@ const DashboardPage = () => {
                   <BarChart data={chartData}>
                     <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(value: any) => [`₱${value.toLocaleString()}`, 'Revenue']} />
+                    <Tooltip />
                     <Bar dataKey="revenue" fill="#f97316" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -435,11 +431,18 @@ const DashboardPage = () => {
                       </div>
                     </div>
                   ))}
+                  {todaySales.length === 0 && (
+                    <div className="text-center py-8">
+                      <ShoppingBag className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-500">No sales today</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
+          {/* Expenses Tab */}
           {activeTab === 'expenses' && (
             <div className="space-y-5">
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
@@ -472,12 +475,14 @@ const DashboardPage = () => {
             </div>
           )}
 
+          {/* Supplies Tab */}
           {activeTab === 'supplies' && (
             <ErrorBoundary>
               <SuppliesManager />
             </ErrorBoundary>
           )}
 
+          {/* Cashiers Tab */}
           {activeTab === 'cashiers' && (
             <div className="space-y-5">
               {topPerformer && topPerformer.sales > 0 && (
@@ -488,6 +493,9 @@ const DashboardPage = () => {
                   </div>
                   <p className="text-2xl font-bold">{topPerformer.name}</p>
                   <p className="text-sm opacity-90">₱{topPerformer.sales.toLocaleString()} sales • {topPerformer.orders} orders</p>
+                  <div className="mt-3 w-full bg-white/20 rounded-full h-2">
+                    <div className="bg-white rounded-full h-2" style={{ width: `${Math.min(cashierSalesPercentage, 100)}%` }} />
+                  </div>
                 </div>
               )}
               <div className="bg-white dark:bg-gray-800 rounded-2xl border p-5">
@@ -509,6 +517,7 @@ const DashboardPage = () => {
             </div>
           )}
 
+          {/* Shifts Tab */}
           {activeTab === 'shifts' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -630,6 +639,7 @@ const DashboardPage = () => {
     </button>
   </div>
 )}
+          
         </div>
 
         <BottomNav />
