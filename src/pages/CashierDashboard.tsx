@@ -8,6 +8,8 @@ import { useTheme } from '@/hooks/useTheme';
 import AccountSwitcher from '@/components/AccountSwitcher';
 import { toast } from 'sonner';
 import { ShiftRecord } from '@/types/user';
+// ─── Real-time sync ────────────────────────────────────────────────────────
+import { syncManager, ModeChangedPayload } from '@/lib/sync';
 
 const CashierDashboard = () => {
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
@@ -45,6 +47,21 @@ const CashierDashboard = () => {
       }
     }
   }, [isLoading, isAuthenticated, user, navigate]);
+
+  // ── Listen for admin mode changes ───────────────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+
+    const unsub = syncManager.on<ModeChangedPayload>('mode_changed', (data) => {
+      if (data.mode === 'inventory') {
+        toast.success(`📦 ${data.assignedBy} assigned you to Inventory Mode!`, { duration: 5000 });
+        // Auto-navigate to cashier inventory after brief delay so the toast is seen
+        setTimeout(() => navigate('/cashier-inventory', { replace: true }), 2500);
+      }
+    });
+
+    return unsub;
+  }, [user, navigate]);
 
   // FIXED: Use getSalesForCashier to get ALL sales for this cashier (not just today)
   const allMySales = user ? getSalesForCashier(user.fullName) : [];

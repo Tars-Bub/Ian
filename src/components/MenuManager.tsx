@@ -18,6 +18,8 @@ import { toast } from 'sonner';
 import { 
   getAllMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, searchMenuItems 
 } from '../../posLogic';
+// ─── Real-time sync ────────────────────────────────────────────────────────
+import { syncManager } from '@/lib/sync';
 
 const categories = ['Sulit Meals', 'Silog Meals', 'Rice Toppings', 'A La Carte', 'Finger Foods', 'Beverages', 'Coffee', 'Others'];
 
@@ -70,9 +72,13 @@ export default function MenuManager() {
       if (editingItem) {
         await updateMenuItem(editingItem.id, itemPayload);
         toast.success("Item updated successfully");
+        // ── Notify admin ──────────────────────────────────────────────────
+        syncManager.inventoryAction('edit_item', { ...itemPayload, id: editingItem.id });
       } else {
         await addMenuItem(itemPayload);
         toast.success("Item added successfully");
+        // ── Notify admin ──────────────────────────────────────────────────
+        syncManager.inventoryAction('add_item', itemPayload);
       }
       
       setIsOpen(false);
@@ -100,6 +106,8 @@ export default function MenuManager() {
     await deleteMenuItem(id);
     toast.success("Item deleted");
     loadItems();
+    // ── Notify admin ──────────────────────────────────────────────────
+    syncManager.inventoryAction('delete_item', { id });
   };
 
   return (

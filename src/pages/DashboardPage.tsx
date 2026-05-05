@@ -14,6 +14,8 @@ import { useTheme } from '@/hooks/useTheme';
 import AccountSwitcher from '@/components/AccountSwitcher';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import ConfirmDialog from '@/components/ConfirmDialog';
+// ─── Real-time sync ────────────────────────────────────────────────────────
+import { syncManager, InventoryUpdatePayload, CashierPresencePayload } from '@/lib/sync';
 
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState<'sales' | 'expenses' | 'supplies' | 'cashiers' | 'users' | 'shifts' | 'menu'>('sales');
@@ -23,6 +25,18 @@ const DashboardPage = () => {
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [voidingOrder, setVoidingOrder] = useState<{ id: string; total: number; number?: string } | null>(null);
   const { user, isAuthenticated, isLoading, logout, getCashiers, deleteUser, switchToCashier, setUsers, users } = useAuth();
+
+  // ── Real-time sync notifications ──────────────────────────────────────
+  const [syncNotifications, setSyncNotifications] = useState<Array<{
+    id: string;
+    type: 'inventory_update' | 'cashier_online' | 'cashier_offline';
+    message: string;
+    cashierName: string;
+    timestamp: string;
+    read: boolean;
+  }>>([]);
+
+  const unreadSyncCount = syncNotifications.filter(n => !n.read).length;
   const [filteredRevenue, setFilteredRevenue] = useState(0);
   const [filteredExpenses, setFilteredExpenses] = useState(0);
   const [filteredOrders, setFilteredOrders] = useState(0);
@@ -57,6 +71,56 @@ const DashboardPage = () => {
       }
     }
   }, [isLoading, isAuthenticated, user, navigate]);
+
+  // ── Real-time sync listeners (admin only) ────────────────────────────────
+  useEffect(() => {
+    if (!user || user.role !== 'admin') return;
+
+    const addNotification = (type: 'inventory_update' | 'cashier_online' | 'cashier_offline', message: string, cashierName: string) => {
+      const notif = {
+        id: Date.now().toString(),
+        type,
+        message,
+        cashierName,
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+      setSyncNotifications(prev => [notif, ...prev].slice(0, 50));
+      toast.info(message, { duration: 4000 });
+    };
+
+    const unsubInventory = syncManager.on<InventoryUpdatePayload>('inventory_update', (data) => {
+      const actionLabels: Record<string, string> = {
+        add_item: 'added a menu item',
+        edit_item: 'edited a menu item',
+        delete_item: 'deleted a menu item',
+        add_supply: 'added a supply',
+        edit_supply: 'edited a supply',
+        delete_supply: 'deleted a supply',
+      };
+      const label = actionLabels[data.action] ?? data.action;
+      const itemName = (data.item as Record<string, unknown>)?.name ?? '';
+      addNotification(
+        'inventory_update',
+        `📦 ${data.cashierName} ${label}${itemName ? `: ${itemName}` : ''}`,
+        data.cashierName,
+      );
+    });
+
+    const unsubOnline = syncManager.on<CashierPresencePayload>('cashier_online', (data) => {
+      addNotification('cashier_online', `🟢 ${data.cashierName} is now online`, data.cashierName);
+    });
+
+    const unsubOffline = syncManager.on<CashierPresencePayload>('cashier_offline', (data) => {
+      addNotification('cashier_offline', `🔴 ${data.cashierName} went offline`, data.cashierName);
+    });
+
+    return () => {
+      unsubInventory();
+      unsubOnline();
+      unsubOffline();
+    };
+  }, [user]);
 
   useEffect(() => {
     const now = new Date();
@@ -248,9 +312,9 @@ const DashboardPage = () => {
             <div className="flex gap-2">
               <button onClick={() => setShowNotifications(true)} className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors flex items-center justify-center relative">
                 <Bell className="w-5 h-5 text-white" />
-                {unreadCount > 0 && (
+                {(unreadCount + unreadSyncCount) > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs text-white font-bold flex items-center justify-center">
-                    {unreadCount}
+                    {unreadCount + unreadSyncCount}
                   </span>
                 )}
               </button>
@@ -666,30 +730,67 @@ const DashboardPage = () => {
               <div className="sticky top-0 bg-white border-b px-5 py-4 flex justify-between items-center">
                 <div>
                   <h2 className="font-bold text-lg">Notifications</h2>
-                  {unreadCount > 0 && <p className="text-xs text-orange-500">{unreadCount} unread shift reports</p>}
+                  {(unreadCount + unreadSyncCount) > 0 && (
+                    <p className="text-xs text-orange-500">{unreadCount + unreadSyncCount} unread</p>
+                  )}
                 </div>
                 <button onClick={() => setShowNotifications(false)} className="p-2 rounded-full hover:bg-gray-100">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-4 space-y-3">
-                {shifts.map(shift => (
-                  <div
-                    key={shift.id}
-                    className={`rounded-2xl p-4 cursor-pointer ${!shift.isRead ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50 border border-gray-200'}`}
-                    onClick={() => { markShiftRead(shift.id); setShowNotifications(false); setActiveTab('shifts'); }}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${!shift.isRead ? 'bg-orange-100' : 'bg-gray-200'}`}>
-                        <Clock className={`w-5 h-5 ${!shift.isRead ? 'text-orange-500' : 'text-gray-500'}`} />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">{shift.cashierName} ended shift</p>
-                        <p className="text-xs text-gray-500">{shift.totalOrders} orders • ₱{shift.totalSales.toLocaleString()} total</p>
-                      </div>
+                {/* ── Real-time sync notifications ─────────────────── */}
+                {syncNotifications.length > 0 && (
+                  <div className="mb-2">
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Live Activity</p>
+                      <button
+                        className="text-xs text-orange-500"
+                        onClick={() => setSyncNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                      >
+                        Mark all read
+                      </button>
                     </div>
+                    {syncNotifications.map(notif => (
+                      <div
+                        key={notif.id}
+                        className={`rounded-2xl p-3 mb-2 cursor-pointer ${!notif.read ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'}`}
+                        onClick={() => setSyncNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n))}
+                      >
+                        <p className="text-sm font-medium text-gray-800">{notif.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(notif.timestamp).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+                {/* ── Shift notifications ───────────────────────────── */}
+                {shifts.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Shift Reports</p>
+                    {shifts.map(shift => (
+                      <div
+                        key={shift.id}
+                        className={`rounded-2xl p-4 cursor-pointer mb-2 ${!shift.isRead ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50 border border-gray-200'}`}
+                        onClick={() => { markShiftRead(shift.id); setShowNotifications(false); setActiveTab('shifts'); }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${!shift.isRead ? 'bg-orange-100' : 'bg-gray-200'}`}>
+                            <Clock className={`w-5 h-5 ${!shift.isRead ? 'text-orange-500' : 'text-gray-500'}`} />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm">{shift.cashierName} ended shift</p>
+                            <p className="text-xs text-gray-500">{shift.totalOrders} orders • ₱{shift.totalSales.toLocaleString()} total</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {syncNotifications.length === 0 && shifts.length === 0 && (
+                  <p className="text-center text-gray-400 text-sm py-8">No notifications yet</p>
+                )}
               </div>
             </motion.div>
           </motion.div>

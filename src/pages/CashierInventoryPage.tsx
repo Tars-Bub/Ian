@@ -5,6 +5,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import MenuManager from '@/components/MenuManager';
 import SuppliesManager from '@/components/SuppliesManager';
+import { toast } from 'sonner';
+// ─── Real-time sync ────────────────────────────────────────────────────────
+import { syncManager, ModeChangedPayload } from '@/lib/sync';
 
 const CashierInventoryPage = () => {
   const navigate = useNavigate();
@@ -23,6 +26,21 @@ const CashierInventoryPage = () => {
       }
     }
   }, [isLoading, isAuthenticated, user, navigate]);
+
+  // ── Listen for admin mode changes ───────────────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+
+    const unsub = syncManager.on<ModeChangedPayload>('mode_changed', (data) => {
+      if (data.mode === 'cashier') {
+        toast.info(`${data.assignedBy} switched you to Cashier Mode`, { duration: 5000 });
+        // Navigate back to cashier dashboard after a short delay
+        setTimeout(() => navigate('/pos', { replace: true }), 2000);
+      }
+    });
+
+    return unsub;
+  }, [user, navigate]);
 
   const handleThemeToggle = () => {
     toggleTheme();

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { User, DEFAULT_ADMIN } from '@/types/user';
 import { toast } from 'sonner';
+// ─── Real-time sync ────────────────────────────────────────────────────────
+import { syncManager } from '@/lib/sync';
 
 // Simple hash function for demo (in production, use bcrypt)
 const simpleHash = (str: string): string => {
@@ -138,6 +140,8 @@ export function useAuth(): AuthState {
     
     setUser(foundUser);
     localStorage.setItem('currentUser', JSON.stringify(foundUser));
+    // ── Connect to sync server after login ──────────────────────────────
+    syncManager.connect(foundUser.id, foundUser.role, foundUser.fullName);
     return { success: true, user: foundUser };
   };
 
@@ -222,6 +226,16 @@ export function useAuth(): AuthState {
       setUser(updatedUser);
       localStorage.setItem('currentUser', JSON.stringify(updatedUser));
     }
+
+    // ── Notify cashier's device in real-time ────────────────────────────
+    if (userToUpdate) {
+      if (operation === 'inventory') {
+        syncManager.assignInventory(userId, userToUpdate.fullName);
+      } else {
+        syncManager.assignCashier(userId, userToUpdate.fullName);
+      }
+    }
+
     return true;
   };
 
